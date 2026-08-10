@@ -69,3 +69,25 @@ export const subscriptions = pgTable("subscriptions", {
     .notNull()
     .defaultNow(),
 });
+
+export const downloads = pgTable("downloads", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  downloadId: varchar("download_id", {
+    length: 128,
+  })
+    .notNull()
+    .unique(),
+
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, {
+      onDelete: "cascade",
+    }),
+
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+  })
+    .notNull()
+    .defaultNow(),
+});

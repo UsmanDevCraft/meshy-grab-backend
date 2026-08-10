@@ -1,8 +1,12 @@
 import { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { FREE_DOWNLOAD_LIMIT } from "../config/constants.js";
 
-import { db } from "../db/client.js";
-import { users, subscriptions } from "../db/schema.js";
+import {
+  getFreeDownloadsRemaining,
+  getUserByInstallationId,
+  getUserSubscription,
+  isProSubscription,
+} from "../services/entitlement.js";
 
 export async function entitlementRoutes(app: FastifyInstance) {
   app.get<{
@@ -18,37 +22,33 @@ export async function entitlementRoutes(app: FastifyInstance) {
       });
     }
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.installationId, installationId))
-      .limit(1);
+    const user = await getUserByInstallationId(installationId);
 
     if (!user) {
       return {
         exists: false,
         plan: "free",
         freeDownloadsUsed: 0,
-        freeDownloadsRemaining: 2,
+        freeDownloadsRemaining: FREE_DOWNLOAD_LIMIT,
+        subscriptionStatus: "inactive",
       };
     }
 
-    const [subscription] = await db
-      .select()
-      .from(subscriptions)
-      .where(eq(subscriptions.userId, user.id))
-      .limit(1);
+    const subscription = await getUserSubscription(user.id);
 
-    const isPro =
-      subscription?.status === "active" || subscription?.status === "trialing";
+    const isPro = isProSubscription(subscription?.status);
 
     return {
       exists: true,
+
       plan: isPro ? "pro" : "free",
+
       freeDownloadsUsed: user.freeDownloadsUsed,
+
       freeDownloadsRemaining: isPro
         ? null
-        : Math.max(0, 2 - user.freeDownloadsUsed),
+        : getFreeDownloadsRemaining(user.freeDownloadsUsed),
+
       subscriptionStatus: subscription?.status ?? "inactive",
     };
   });
