@@ -20,4 +20,6 @@ export const env = {
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET ?? "",
 
   FRONTEND_URL: process.env.FRONTEND_URL ?? "https://meshy.ai",
+
+  FREE_DOWNLOAD_LIMIT: Number(process.env.FREE_DOWNLOAD_LIMIT ?? 2),
 };

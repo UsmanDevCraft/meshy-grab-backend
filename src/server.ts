@@ -4,6 +4,8 @@ import cors from "@fastify/cors";
 import { env } from "./config/env.js";
 import { healthRoutes } from "./routes/health.js";
 import { entitlementRoutes } from "./routes/entitlement.js";
+import { installRoutes } from "./routes/install.js";
+import { downloadRoutes } from "./routes/downloads.js";
 
 const app = Fastify({
   logger: true,
@@ -15,6 +17,8 @@ await app.register(cors, {
 
 await app.register(healthRoutes);
 await app.register(entitlementRoutes);
+await app.register(installRoutes);
+await app.register(downloadRoutes);
 
 app.get("/", async () => {
   return {
