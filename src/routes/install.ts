@@ -33,10 +33,22 @@ export async function installRoutes(app: FastifyInstance) {
         .limit(1);
 
       if (existingUser) {
+        const [updatedUser] = await db
+          .update(users)
+          .set({
+            lastSeenAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, existingUser.id))
+          .returning({
+            id: users.id,
+            installationId: users.installationId,
+          });
+
         return {
           created: false,
-          userId: existingUser.id,
-          installationId: existingUser.installationId,
+          userId: updatedUser.id,
+          installationId: updatedUser.installationId,
         };
       }
 

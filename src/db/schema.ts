@@ -17,6 +17,12 @@ export const users = pgTable("users", {
 
   freeDownloadsUsed: integer("free_downloads_used").notNull().default(0),
 
+  lastSeenAt: timestamp("last_seen_at", {
+    withTimezone: true,
+  })
+    .notNull()
+    .defaultNow(),
+
   createdAt: timestamp("created_at", {
     withTimezone: true,
   })

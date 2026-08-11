@@ -9,7 +9,9 @@ import { installRoutes } from "./routes/install.js";
 import { downloadRoutes } from "./routes/downloads.js";
 
 const app = Fastify({
-  logger: true,
+  logger: {
+    level: env.NODE_ENV === "production" ? "info" : "debug",
+  },
 });
 
 await app.register(cors, {
