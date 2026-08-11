@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 
 import { env } from "./config/env.js";
 import { healthRoutes } from "./routes/health.js";
@@ -13,6 +14,11 @@ const app = Fastify({
 
 await app.register(cors, {
   origin: true,
+});
+
+await app.register(rateLimit, {
+  max: 100,
+  timeWindow: "1 minute",
 });
 
 await app.register(healthRoutes);

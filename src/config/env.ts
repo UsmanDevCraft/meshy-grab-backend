@@ -1,10 +1,8 @@
-import "dotenv/config";
-
 function requireEnv(name: string): string {
   const value = process.env[name];
 
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
+    throw new Error(`${name} environment variable is required`);
   }
 
   return value;
@@ -13,13 +11,7 @@ function requireEnv(name: string): string {
 export const env = {
   DATABASE_URL: requireEnv("DATABASE_URL"),
 
+  NODE_ENV: process.env.NODE_ENV ?? "development",
+
   PORT: Number(process.env.PORT ?? 3000),
-
-  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ?? "",
-
-  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET ?? "",
-
-  FRONTEND_URL: process.env.FRONTEND_URL ?? "https://meshy.ai",
-
-  FREE_DOWNLOAD_LIMIT: Number(process.env.FREE_DOWNLOAD_LIMIT ?? 2),
 };
