@@ -7,17 +7,17 @@ import {
   FREE_DOWNLOAD_LIMIT,
   SUBSCRIPTION_STATUSES,
 } from "../config/constants.js";
+
 import { ERROR_CODES } from "../config/errors.js";
 
-export async function consumeDownload(userId: string, downloadId: string) {
+export async function consumeDownload(userId: string, taskId: string) {
   return db.transaction(async (tx) => {
-    // Check whether this download was already
-    // processed.
-
+    // Check whether this user already consumed
+    // a download for this specific Meshy task.
     const [existingDownload] = await tx
       .select()
       .from(downloads)
-      .where(eq(downloads.downloadId, downloadId))
+      .where(and(eq(downloads.userId, userId), eq(downloads.taskId, taskId)))
       .limit(1);
 
     const [user] = await tx
@@ -40,8 +40,7 @@ export async function consumeDownload(userId: string, downloadId: string) {
       subscription?.status === SUBSCRIPTION_STATUSES.ACTIVE ||
       subscription?.status === SUBSCRIPTION_STATUSES.TRIALING;
 
-    // Duplicate request
-
+    // Duplicate request / same model already consumed.
     if (existingDownload) {
       return {
         allowed: true,
@@ -57,10 +56,9 @@ export async function consumeDownload(userId: string, downloadId: string) {
     }
 
     // PRO
-
     if (isPro) {
       await tx.insert(downloads).values({
-        downloadId,
+        taskId,
         userId,
       });
 
@@ -74,22 +72,18 @@ export async function consumeDownload(userId: string, downloadId: string) {
 
     // FREE
     //
-    // IMPORTANT:
-    // The increment happens inside SQL,
-    // not JavaScript.
+    // Increment happens atomically inside SQL.
 
     const [updatedUser] = await tx
       .update(users)
       .set({
         freeDownloadsUsed: sql`${users.freeDownloadsUsed} + 1`,
-
         lastSeenAt: new Date(),
         updatedAt: new Date(),
       })
       .where(
         and(
           eq(users.id, userId),
-
           lt(users.freeDownloadsUsed, FREE_DOWNLOAD_LIMIT),
         ),
       )
@@ -97,8 +91,7 @@ export async function consumeDownload(userId: string, downloadId: string) {
         freeDownloadsUsed: users.freeDownloadsUsed,
       });
 
-    // Limit reached
-
+    // Limit reached.
     if (!updatedUser) {
       return {
         allowed: false,
@@ -109,10 +102,9 @@ export async function consumeDownload(userId: string, downloadId: string) {
       };
     }
 
-    // Record event
-
+    // Record successful consumption.
     await tx.insert(downloads).values({
-      downloadId,
+      taskId,
       userId,
     });
 

@@ -4,6 +4,7 @@ import {
   varchar,
   integer,
   timestamp,
+  unique,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -76,24 +77,31 @@ export const subscriptions = pgTable("subscriptions", {
     .defaultNow(),
 });
 
-export const downloads = pgTable("downloads", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const downloads = pgTable(
+  "downloads",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
 
-  downloadId: varchar("download_id", {
-    length: 128,
-  })
-    .notNull()
-    .unique(),
+    taskId: varchar("task_id", {
+      length: 128,
+    }).notNull(),
 
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, {
-      onDelete: "cascade",
-    }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+      }),
 
-  createdAt: timestamp("created_at", {
-    withTimezone: true,
-  })
-    .notNull()
-    .defaultNow(),
-});
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    userTaskUnique: unique("downloads_user_task_unique").on(
+      table.userId,
+      table.taskId,
+    ),
+  }),
+);

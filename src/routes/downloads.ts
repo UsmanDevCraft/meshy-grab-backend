@@ -24,9 +24,9 @@ export async function downloadRoutes(app: FastifyInstance) {
     },
 
     async (request, reply) => {
-      const { installationId, downloadId } = request.body as {
+      const { installationId, taskId } = request.body as {
         installationId: string;
-        downloadId: string;
+        taskId: string;
       };
 
       const user = await getUserByInstallationId(installationId);
@@ -38,7 +38,7 @@ export async function downloadRoutes(app: FastifyInstance) {
         });
       }
 
-      const result = await consumeDownload(user.id, downloadId);
+      const result = await consumeDownload(user.id, taskId);
 
       if (!result.allowed) {
         return reply.code(403).send({
@@ -51,7 +51,7 @@ export async function downloadRoutes(app: FastifyInstance) {
       request.log.info(
         {
           installationId,
-          downloadId,
+          taskId,
           duplicate: result.duplicate,
           plan: result.plan,
         },

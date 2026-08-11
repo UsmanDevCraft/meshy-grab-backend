@@ -1,6 +1,7 @@
 export const consumeDownloadBodySchema = {
   type: "object",
-  required: ["installationId", "downloadId"],
+
+  required: ["installationId", "taskId"],
 
   additionalProperties: false,
 
@@ -11,7 +12,7 @@ export const consumeDownloadBodySchema = {
       maxLength: 128,
     },
 
-    downloadId: {
+    taskId: {
       type: "string",
       minLength: 1,
       maxLength: 128,
