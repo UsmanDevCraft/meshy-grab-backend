@@ -7,6 +7,7 @@ import { healthRoutes } from "./routes/health.js";
 import { entitlementRoutes } from "./routes/entitlement.js";
 import { installRoutes } from "./routes/install.js";
 import { downloadRoutes } from "./routes/downloads.js";
+import { billingRoutes } from "./routes/billing.js";
 
 const app = Fastify({
   logger: {
@@ -27,6 +28,7 @@ await app.register(healthRoutes);
 await app.register(entitlementRoutes);
 await app.register(installRoutes);
 await app.register(downloadRoutes);
+await app.register(billingRoutes);
 
 app.get("/", async () => {
   return {

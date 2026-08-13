@@ -5,6 +5,7 @@ import {
   integer,
   timestamp,
   unique,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -42,6 +43,7 @@ export const subscriptions = pgTable("subscriptions", {
 
   userId: uuid("user_id")
     .notNull()
+    .unique()
     .references(() => users.id, {
       onDelete: "cascade",
     }),
@@ -54,15 +56,25 @@ export const subscriptions = pgTable("subscriptions", {
     length: 255,
   }).unique(),
 
+  stripePriceId: varchar("stripe_price_id", {
+    length: 255,
+  }),
+
   status: varchar("status", {
     length: 50,
   })
     .notNull()
     .default("inactive"),
 
+  currentPeriodStart: timestamp("current_period_start", {
+    withTimezone: true,
+  }),
+
   currentPeriodEnd: timestamp("current_period_end", {
     withTimezone: true,
   }),
+
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
 
   createdAt: timestamp("created_at", {
     withTimezone: true,

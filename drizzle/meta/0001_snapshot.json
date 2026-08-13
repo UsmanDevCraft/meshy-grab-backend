@@ -1,6 +1,6 @@
 {
-  "id": "5f0cca87-59e6-4d56-82c0-95b5ff3545ae",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "14ee3f91-1eea-4840-88e4-7066e09507af",
+  "prevId": "5f0cca87-59e6-4d56-82c0-95b5ff3545ae",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -160,6 +160,13 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "subscriptions_user_id_unique": {
+          "name": "subscriptions_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id"
+          ]
+        },
         "subscriptions_stripe_subscription_id_unique": {
           "name": "subscriptions_stripe_subscription_id_unique",
           "nullsNotDistinct": false,

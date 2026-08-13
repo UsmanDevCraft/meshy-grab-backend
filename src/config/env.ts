@@ -11,6 +11,10 @@ function requireEnv(name: string): string {
 export const env = {
   DATABASE_URL: requireEnv("DATABASE_URL"),
 
+  STRIPE_SECRET_KEY: requireEnv("STRIPE_SECRET_KEY"),
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  STRIPE_PRICE_ID: requireEnv("STRIPE_PRICE_ID"),
+
   NODE_ENV: process.env.NODE_ENV ?? "development",
 
   PORT: Number(process.env.PORT ?? 3000),

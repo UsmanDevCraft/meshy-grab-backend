@@ -1,5 +1,5 @@
 {
-  "id": "5f0cca87-59e6-4d56-82c0-95b5ff3545ae",
+  "id": "4b8f2082-ffeb-476b-909b-04e2ef5baef0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -95,12 +95,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "stripe_price_id": {
-          "name": "stripe_price_id",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
         "status": {
           "name": "status",
           "type": "varchar(50)",
@@ -108,24 +102,11 @@
           "notNull": true,
           "default": "'inactive'"
         },
-        "current_period_start": {
-          "name": "current_period_start",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "current_period_end": {
           "name": "current_period_end",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
-        },
-        "cancel_at_period_end": {
-          "name": "cancel_at_period_end",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "created_at": {
           "name": "created_at",
