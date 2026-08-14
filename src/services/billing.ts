@@ -1,16 +1,13 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "../db/client.js";
-import { subscriptions, users } from "../db/schema.js";
+import { subscriptions } from "../db/schema.js";
+import { getUserByInstallationId } from "./entitlement.js";
 import { stripe } from "../lib/stripe.js";
 import { env } from "../config/env.js";
 
 export async function createCheckoutSession(installationId: string) {
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.installationId, installationId))
-    .limit(1);
+  const user = await getUserByInstallationId(installationId);
 
   if (!user) {
     return {
@@ -35,7 +32,7 @@ export async function createCheckoutSession(installationId: string) {
     const customer = await stripe.customers.create({
       metadata: {
         userId: user.id,
-        installationId: user.installationId,
+        installationId,
       },
     });
 
@@ -56,13 +53,13 @@ export async function createCheckoutSession(installationId: string) {
 
     metadata: {
       userId: user.id,
-      installationId: user.installationId,
+      installationId,
     },
 
     subscription_data: {
       metadata: {
         userId: user.id,
-        installationId: user.installationId,
+        installationId,
       },
     },
 

@@ -11,13 +11,45 @@ import {
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
 
+  email: varchar("email", {
+    length: 255,
+  }).unique(),
+
+  freeDownloadsUsed: integer("free_downloads_used").notNull().default(0),
+
+  lastSeenAt: timestamp("last_seen_at", {
+    withTimezone: true,
+  })
+    .notNull()
+    .defaultNow(),
+
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+  })
+    .notNull()
+    .defaultNow(),
+
+  updatedAt: timestamp("updated_at", {
+    withTimezone: true,
+  })
+    .notNull()
+    .defaultNow(),
+});
+
+export const installations = pgTable("installations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, {
+      onDelete: "cascade",
+    }),
+
   installationId: varchar("installation_id", {
     length: 128,
   })
     .notNull()
     .unique(),
-
-  freeDownloadsUsed: integer("free_downloads_used").notNull().default(0),
 
   lastSeenAt: timestamp("last_seen_at", {
     withTimezone: true,
