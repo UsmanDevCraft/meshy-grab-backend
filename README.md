@@ -1,6 +1,32 @@
 # MeshyGrab Backend
 
-Backend API for **MeshyGrab**, a browser extension that helps users download their generated Meshy 3D models as GLB files while providing a simple free-download allowance and, eventually, an optional unlimited subscription.
+**MeshyGrab** is an independent browser extension designed to make downloading generated 3D models from a Meshy workspace simpler.
+
+The browser extension handles the user-facing experience, including model detection, previewing, and starting GLB downloads. The backend exists to handle the parts that require persistent server-side state.
+
+It provides the authoritative system for:
+
+* Installation registration
+* Download entitlements
+* Free-download accounting
+* Idempotent download consumption
+* Persistent download records
+* Subscription state
+* Abuse protection
+* Future payment integration
+
+The architecture intentionally keeps the actual GLB download client-side while using the backend for entitlement and usage accounting. This keeps the user experience fast while ensuring important usage rules are enforced server-side.
+
+### Architecture Philosophy
+
+> **Keep the user-facing path fast. Keep the authoritative state on the server.**
+
+The backend is built with:
+
+**TypeScript · Fastify · Drizzle ORM · Neon PostgreSQL · Stripe**
+
+MeshyGrab is an independent third-party product and is **not affiliated with, endorsed by, or sponsored by Meshy**.
+
 
 ---
 
