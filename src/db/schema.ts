@@ -136,6 +136,14 @@ export const downloads = pgTable(
         onDelete: "cascade",
       }),
 
+    previewUrl: varchar("preview_url", {
+      length: 2048,
+    }),
+
+    modelUrl: varchar("model_url", {
+      length: 2048,
+    }),
+
     createdAt: timestamp("created_at", {
       withTimezone: true,
     })

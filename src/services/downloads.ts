@@ -10,7 +10,12 @@ import {
 
 import { ERROR_CODES } from "../config/errors.js";
 
-export async function consumeDownload(userId: string, taskId: string) {
+export async function consumeDownload(
+  userId: string,
+  taskId: string,
+  previewUrl?: string | null,
+  modelUrl?: string | null,
+) {
   return db.transaction(async (tx) => {
     // Check whether this user already consumed
     // a download for this specific Meshy task.
@@ -60,6 +65,8 @@ export async function consumeDownload(userId: string, taskId: string) {
       await tx.insert(downloads).values({
         taskId,
         userId,
+        previewUrl: previewUrl ?? null,
+        modelUrl: modelUrl ?? null,
       });
 
       return {
@@ -106,6 +113,8 @@ export async function consumeDownload(userId: string, taskId: string) {
     await tx.insert(downloads).values({
       taskId,
       userId,
+      previewUrl: previewUrl ?? null,
+      modelUrl: modelUrl ?? null,
     });
 
     return {

@@ -17,5 +17,15 @@ export const consumeDownloadBodySchema = {
       minLength: 1,
       maxLength: 128,
     },
+
+    previewUrl: {
+      type: ["string", "null"],
+      maxLength: 2048,
+    },
+
+    modelUrl: {
+      type: ["string", "null"],
+      maxLength: 2048,
+    },
   },
 } as const;
