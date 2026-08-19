@@ -19,12 +19,14 @@ export const consumeDownloadBodySchema = {
     },
 
     previewUrl: {
-      type: ["string", "null"],
+      type: "string",
+      nullable: true,
       maxLength: 2048,
     },
 
     modelUrl: {
-      type: ["string", "null"],
+      type: "string",
+      nullable: true,
       maxLength: 2048,
     },
   },
