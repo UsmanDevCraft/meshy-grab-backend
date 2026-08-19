@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import fastifyRawBody from "fastify-raw-body";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 
@@ -8,11 +9,20 @@ import { entitlementRoutes } from "./routes/entitlement.js";
 import { installRoutes } from "./routes/install.js";
 import { downloadRoutes } from "./routes/downloads.js";
 import { billingRoutes } from "./routes/billing.js";
+import { checkoutRoutes } from "./routes/checkout.js";
+import { webhookRoutes } from "./routes/webhook.js";
 
 const app = Fastify({
   logger: {
     level: env.NODE_ENV === "production" ? "info" : "debug",
   },
+});
+
+await app.register(fastifyRawBody, {
+  field: "rawBody",
+  global: false,
+  encoding: "utf8",
+  runFirst: true,
 });
 
 await app.register(cors, {
@@ -29,6 +39,8 @@ await app.register(entitlementRoutes);
 await app.register(installRoutes);
 await app.register(downloadRoutes);
 await app.register(billingRoutes);
+await app.register(checkoutRoutes);
+await app.register(webhookRoutes);
 
 app.get("/", async () => {
   return {

@@ -15,6 +15,12 @@ export const env = {
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   STRIPE_PRICE_ID: requireEnv("STRIPE_PRICE_ID"),
 
+  CREEM_API_KEY: requireEnv("CREEM_API_KEY"),
+  CREEM_PRODUCT_ID: requireEnv("CREEM_PRODUCT_ID"),
+  CREEM_WEBHOOK_SECRET: requireEnv("CREEM_WEBHOOK_SECRET"),
+
+  FRONTEND_SUCCESS_URL: requireEnv("FRONTEND_SUCCESS_URL"),
+
   NODE_ENV: process.env.NODE_ENV ?? "development",
 
   PORT: Number(process.env.PORT ?? 3000),
