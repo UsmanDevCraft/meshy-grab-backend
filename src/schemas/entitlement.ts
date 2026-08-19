@@ -1,10 +1,13 @@
 export const entitlementQuerySchema = {
   type: "object",
-  required: ["installationId"],
-  additionalProperties: false,
-
+  additionalProperties: true,
   properties: {
     installationId: {
+      type: "string",
+      minLength: 1,
+      maxLength: 128,
+    },
+    userId: {
       type: "string",
       minLength: 1,
       maxLength: 128,

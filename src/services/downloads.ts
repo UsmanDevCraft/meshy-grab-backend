@@ -42,6 +42,7 @@ export async function consumeDownload(
       .limit(1);
 
     const isPro =
+      user.isPaid === true ||
       subscription?.status === SUBSCRIPTION_STATUSES.ACTIVE ||
       subscription?.status === SUBSCRIPTION_STATUSES.TRIALING;
 

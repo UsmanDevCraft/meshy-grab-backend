@@ -8,7 +8,6 @@ import { healthRoutes } from "./routes/health.js";
 import { entitlementRoutes } from "./routes/entitlement.js";
 import { installRoutes } from "./routes/install.js";
 import { downloadRoutes } from "./routes/downloads.js";
-import { billingRoutes } from "./routes/billing.js";
 import { checkoutRoutes } from "./routes/checkout.js";
 import { webhookRoutes } from "./routes/webhook.js";
 
@@ -38,7 +37,6 @@ await app.register(healthRoutes);
 await app.register(entitlementRoutes);
 await app.register(installRoutes);
 await app.register(downloadRoutes);
-await app.register(billingRoutes);
 await app.register(checkoutRoutes);
 await app.register(webhookRoutes);
 

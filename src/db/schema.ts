@@ -17,6 +17,20 @@ export const users = pgTable("users", {
 
   freeDownloadsUsed: integer("free_downloads_used").notNull().default(0),
 
+  isPaid: boolean("is_paid").notNull().default(false),
+
+  creemCustomerId: varchar("creem_customer_id", {
+    length: 255,
+  }),
+
+  creemSubscriptionId: varchar("creem_subscription_id", {
+    length: 255,
+  }),
+
+  paidAt: timestamp("paid_at", {
+    withTimezone: true,
+  }),
+
   lastSeenAt: timestamp("last_seen_at", {
     withTimezone: true,
   })
@@ -80,15 +94,15 @@ export const subscriptions = pgTable("subscriptions", {
       onDelete: "cascade",
     }),
 
-  stripeCustomerId: varchar("stripe_customer_id", {
+  creemCustomerId: varchar("creem_customer_id", {
     length: 255,
   }),
 
-  stripeSubscriptionId: varchar("stripe_subscription_id", {
+  creemSubscriptionId: varchar("creem_subscription_id", {
     length: 255,
   }).unique(),
 
-  stripePriceId: varchar("stripe_price_id", {
+  creemProductId: varchar("creem_product_id", {
     length: 255,
   }),
 

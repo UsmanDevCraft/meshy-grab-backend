@@ -11,10 +11,6 @@ function requireEnv(name: string): string {
 export const env = {
   DATABASE_URL: requireEnv("DATABASE_URL"),
 
-  STRIPE_SECRET_KEY: requireEnv("STRIPE_SECRET_KEY"),
-  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
-  STRIPE_PRICE_ID: requireEnv("STRIPE_PRICE_ID"),
-
   CREEM_API_KEY: requireEnv("CREEM_API_KEY"),
   CREEM_PRODUCT_ID: requireEnv("CREEM_PRODUCT_ID"),
   CREEM_WEBHOOK_SECRET: requireEnv("CREEM_WEBHOOK_SECRET"),

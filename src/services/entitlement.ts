@@ -7,6 +7,16 @@ import {
   SUBSCRIPTION_STATUSES,
 } from "../config/constants.js";
 
+export async function getUserById(userId: string) {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  return user ?? null;
+}
+
 export async function getUserByInstallationId(installationId: string) {
   const [result] = await db
     .select({ user: users })
@@ -28,8 +38,9 @@ export async function getUserSubscription(userId: string) {
   return subscription ?? null;
 }
 
-export function isProSubscription(status: string | undefined) {
+export function isProSubscription(status?: string | null, isPaid?: boolean) {
   return (
+    isPaid === true ||
     status === SUBSCRIPTION_STATUSES.ACTIVE ||
     status === SUBSCRIPTION_STATUSES.TRIALING
   );
