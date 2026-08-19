@@ -3,12 +3,13 @@ import { FREE_DOWNLOAD_LIMIT } from "../config/constants.js";
 
 import {
   getFreeDownloadsRemaining,
-  getUserById,
-  getUserByInstallationId,
-  getUserSubscription,
+  getUserAndSubscription,
   isProSubscription,
 } from "../services/entitlement.js";
-import { entitlementQuerySchema } from "../schemas/entitlement.js";
+import {
+  entitlementQuerySchema,
+  entitlementResponseSchema,
+} from "../schemas/entitlement.js";
 
 interface EntitlementQuery {
   installationId?: string;
@@ -25,13 +26,7 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
     };
   }
 
-  let user = null;
-  if (userId) {
-    user = await getUserById(userId);
-  }
-  if (!user && installationId) {
-    user = await getUserByInstallationId(installationId);
-  }
+  const user = await getUserAndSubscription({ userId, installationId });
 
   if (!user) {
     return {
@@ -50,9 +45,7 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
     };
   }
 
-  const subscription = await getUserSubscription(user.id);
-  const isPro =
-    user.isPaid || isProSubscription(subscription?.status, user.isPaid);
+  const isPro = user.isPaid || isProSubscription(user.subStatus, user.isPaid);
 
   return {
     statusCode: 200,
@@ -68,11 +61,10 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
         : getFreeDownloadsRemaining(user.freeDownloadsUsed),
       subscriptionStatus: user.isPaid
         ? "active"
-        : (subscription?.status ?? "inactive"),
-      creemCustomerId:
-        user.creemCustomerId ?? subscription?.creemCustomerId ?? null,
+        : (user.subStatus ?? "inactive"),
+      creemCustomerId: user.creemCustomerId ?? user.subCreemCustomerId ?? null,
       creemSubscriptionId:
-        user.creemSubscriptionId ?? subscription?.creemSubscriptionId ?? null,
+        user.creemSubscriptionId ?? user.subCreemSubscriptionId ?? null,
       paidAt: user.paidAt ? user.paidAt.toISOString() : null,
     },
   };
@@ -85,6 +77,7 @@ export async function entitlementRoutes(app: FastifyInstance) {
     {
       schema: {
         querystring: entitlementQuerySchema,
+        response: entitlementResponseSchema,
       },
     },
     async (request, reply) => {
@@ -102,6 +95,7 @@ export async function entitlementRoutes(app: FastifyInstance) {
     {
       schema: {
         querystring: entitlementQuerySchema,
+        response: entitlementResponseSchema,
       },
     },
     async (request, reply) => {

@@ -29,3 +29,31 @@ export const consumeDownloadBodySchema = {
     },
   },
 } as const;
+
+export const consumeDownloadResponseSchema = {
+  200: {
+    type: "object",
+    properties: {
+      allowed: { type: "boolean" },
+      duplicate: { type: "boolean" },
+      plan: { type: "string" },
+      freeDownloadsUsed: { type: ["number", "null"] },
+      freeDownloadsRemaining: { type: ["number", "null"] },
+    },
+  },
+  403: {
+    type: "object",
+    properties: {
+      error: { type: "string" },
+      message: { type: "string" },
+      freeDownloadsRemaining: { type: "number" },
+    },
+  },
+  404: {
+    type: "object",
+    properties: {
+      error: { type: "string" },
+      message: { type: "string" },
+    },
+  },
+} as const;

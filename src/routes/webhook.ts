@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { verifyWebhookSignature } from "creem/webhooks";
-import { eq, or } from "drizzle-orm";
+import { eq, or, SQL } from "drizzle-orm";
 import { env } from "../config/env.js";
 import { db } from "../db/client.js";
 import { users, subscriptions } from "../db/schema.js";
@@ -45,9 +45,13 @@ export async function webhookRoutes(app: FastifyInstance) {
 
       const payload = typeof event === "string" ? JSON.parse(event) : event;
 
-      // CREEM event field fallbacks
+      // Robust CREEM event field fallbacks to prevent undefined eventType
       const eventType =
-        payload.event || payload.type || payload.eventType || payload.action;
+        payload.event ||
+        payload.type ||
+        payload.eventType ||
+        payload.action ||
+        "";
 
       // CREEM data field fallbacks
       const data = payload.data || payload.object || payload.payload || payload;
@@ -149,7 +153,7 @@ export async function webhookRoutes(app: FastifyInstance) {
             req.log.warn(
               "checkout.completed attempting fallback lookup by customerId/subscriptionId",
             );
-            const conditions = [];
+            const conditions: SQL[] = [];
             if (customerId)
               conditions.push(eq(users.creemCustomerId, customerId));
             if (subscriptionId)
@@ -169,49 +173,50 @@ export async function webhookRoutes(app: FastifyInstance) {
           }
 
           if (targetUserId) {
-            // 1. Update user record
-            const userUpdate = await db
-              .update(users)
-              .set({
-                isPaid: true,
-                creemCustomerId: customerId,
-                creemSubscriptionId: subscriptionId,
-                paidAt: new Date(),
-                updatedAt: new Date(),
-              })
-              .where(eq(users.id, targetUserId))
-              .returning();
+            // Atomic transaction for updating user status & upserting subscription record
+            await db.transaction(async (tx) => {
+              const userUpdate = await tx
+                .update(users)
+                .set({
+                  isPaid: true,
+                  creemCustomerId: customerId,
+                  creemSubscriptionId: subscriptionId,
+                  paidAt: new Date(),
+                  updatedAt: new Date(),
+                })
+                .where(eq(users.id, targetUserId))
+                .returning();
 
-            console.log("[DB SUCCESS] Updated User Record:", userUpdate);
+              console.log("[DB SUCCESS] Updated User Record:", userUpdate);
 
-            // 2. Upsert subscription record
-            const subUpsert = await db
-              .insert(subscriptions)
-              .values({
-                userId: targetUserId,
-                creemCustomerId: customerId,
-                creemSubscriptionId: subscriptionId,
-                creemProductId: productId,
-                status: "active",
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              })
-              .onConflictDoUpdate({
-                target: subscriptions.userId,
-                set: {
+              const subUpsert = await tx
+                .insert(subscriptions)
+                .values({
+                  userId: targetUserId,
                   creemCustomerId: customerId,
                   creemSubscriptionId: subscriptionId,
                   creemProductId: productId,
                   status: "active",
+                  createdAt: new Date(),
                   updatedAt: new Date(),
-                },
-              })
-              .returning();
+                })
+                .onConflictDoUpdate({
+                  target: subscriptions.userId,
+                  set: {
+                    creemCustomerId: customerId,
+                    creemSubscriptionId: subscriptionId,
+                    creemProductId: productId,
+                    status: "active",
+                    updatedAt: new Date(),
+                  },
+                })
+                .returning();
 
-            console.log(
-              "[DB SUCCESS] Upserted Subscription Record:",
-              subUpsert,
-            );
+              console.log(
+                "[DB SUCCESS] Upserted Subscription Record:",
+                subUpsert,
+              );
+            });
           } else {
             console.error(
               "[DB ERROR] Failed to resolve targetUserId from metadata, email, or IDs.",
@@ -252,25 +257,14 @@ export async function webhookRoutes(app: FastifyInstance) {
           );
 
           // Locate user by userId, creemSubscriptionId, or creemCustomerId
-          const userConditions = [];
+          const userConditions: SQL[] = [];
           if (userId) userConditions.push(eq(users.id, userId));
           if (subscriptionId)
             userConditions.push(eq(users.creemSubscriptionId, subscriptionId));
           if (customerId)
             userConditions.push(eq(users.creemCustomerId, customerId));
 
-          if (userConditions.length > 0) {
-            await db
-              .update(users)
-              .set({
-                isPaid: false,
-                updatedAt: new Date(),
-              })
-              .where(or(...userConditions));
-          }
-
-          // Update subscription status in subscriptions table
-          const subConditions = [];
+          const subConditions: SQL[] = [];
           if (userId) subConditions.push(eq(subscriptions.userId, userId));
           if (subscriptionId)
             subConditions.push(
@@ -279,18 +273,31 @@ export async function webhookRoutes(app: FastifyInstance) {
           if (customerId)
             subConditions.push(eq(subscriptions.creemCustomerId, customerId));
 
-          if (subConditions.length > 0) {
-            await db
-              .update(subscriptions)
-              .set({
-                status:
-                  eventType === "subscription.canceled"
-                    ? "canceled"
-                    : "expired",
-                updatedAt: new Date(),
-              })
-              .where(or(...subConditions));
-          }
+          // Atomic transaction for subscription cancellation/expiration updates
+          await db.transaction(async (tx) => {
+            if (userConditions.length > 0) {
+              await tx
+                .update(users)
+                .set({
+                  isPaid: false,
+                  updatedAt: new Date(),
+                })
+                .where(or(...userConditions));
+            }
+
+            if (subConditions.length > 0) {
+              await tx
+                .update(subscriptions)
+                .set({
+                  status:
+                    eventType === "subscription.canceled"
+                      ? "canceled"
+                      : "expired",
+                  updatedAt: new Date(),
+                })
+                .where(or(...subConditions));
+            }
+          });
           break;
         }
 

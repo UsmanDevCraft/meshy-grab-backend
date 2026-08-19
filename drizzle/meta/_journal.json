@@ -43,6 +43,13 @@
       "when": 1787120100768,
       "tag": "0005_new_barracuda",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787127022152,
+      "tag": "0006_green_frog_thor",
+      "breakpoints": true
     }
   ]
 }

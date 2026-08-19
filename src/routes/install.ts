@@ -1,9 +1,11 @@
 import { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
 
 import { db } from "../db/client.js";
 import { installations, users } from "../db/schema.js";
-import { installBodySchema } from "../schemas/install.js";
+import {
+  installBodySchema,
+  installResponseSchema,
+} from "../schemas/install.js";
 
 export async function installRoutes(app: FastifyInstance) {
   app.post<{
@@ -16,6 +18,7 @@ export async function installRoutes(app: FastifyInstance) {
     {
       schema: {
         body: installBodySchema,
+        response: installResponseSchema,
       },
     },
     async (request, reply) => {
@@ -35,146 +38,53 @@ export async function installRoutes(app: FastifyInstance) {
         });
       }
 
-      const result = await db.transaction(async (tx) => {
-        /*
-         * 1. Check whether this installation already exists.
-         */
-        const [existingInstallation] = await tx
-          .select({
-            installation: installations,
-            user: users,
-          })
-          .from(installations)
-          .innerJoin(users, eq(installations.userId, users.id))
-          .where(eq(installations.installationId, installationId))
-          .limit(1);
+      const now = new Date();
 
-        /*
-         * 2. Existing installation.
-         *
-         * The installation is already permanently associated
-         * with a user. Never silently move it to another user.
-         */
-        if (existingInstallation) {
-          const existingUser = existingInstallation.user;
+      // 1. Single-statement atomic upsert for user by email
+      const [user] = await db
+        .insert(users)
+        .values({
+          email: normalizedEmail,
+          lastSeenAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: users.email,
+          set: {
+            lastSeenAt: now,
+            updatedAt: now,
+          },
+        })
+        .returning({
+          id: users.id,
+          email: users.email,
+        });
 
-          /*
-           * Same installation + same email = normal reconnect.
-           */
-          if (existingUser.email === normalizedEmail) {
-            const now = new Date();
-
-            await tx
-              .update(installations)
-              .set({
-                lastSeenAt: now,
-                updatedAt: now,
-              })
-              .where(
-                eq(installations.id, existingInstallation.installation.id),
-              );
-
-            await tx
-              .update(users)
-              .set({
-                lastSeenAt: now,
-                updatedAt: now,
-              })
-              .where(eq(users.id, existingUser.id));
-
-            return {
-              created: false,
-              newUser: false,
-              newInstallation: false,
-              userId: existingUser.id,
-              installationId,
-            };
-          }
-
-          /*
-           * Same installation ID but different email.
-           *
-           * This should never silently reassign the installation.
-           */
-          return {
-            conflict: true as const,
-            userId: existingUser.id,
-          };
-        }
-
-        /*
-         * 3. Installation is new.
-         *
-         * Now recover the user using email.
-         */
-        const [existingUser] = await tx
-          .select()
-          .from(users)
-          .where(eq(users.email, normalizedEmail))
-          .limit(1);
-
-        let user: typeof users.$inferSelect;
-        let isNewUser = false;
-
-        if (existingUser) {
-          /*
-           * Existing user found by email.
-           *
-           * This is the reinstall/recovery path.
-           */
-          user = existingUser;
-        } else {
-          /*
-           * Completely new user.
-           */
-          const [newUser] = await tx
-            .insert(users)
-            .values({
-              email: normalizedEmail,
-            })
-            .returning();
-
-          user = newUser;
-          isNewUser = true;
-        }
-
-        /*
-         * 4. Attach this new installation to the user.
-         */
-        const now = new Date();
-
-        await tx.insert(installations).values({
+      // 2. Single-statement atomic upsert for installation by installationId
+      const [inst] = await db
+        .insert(installations)
+        .values({
           installationId,
           userId: user.id,
           lastSeenAt: now,
           updatedAt: now,
-        });
-
-        /*
-         * 5. Update user's activity.
-         */
-        await tx
-          .update(users)
-          .set({
+        })
+        .onConflictDoUpdate({
+          target: installations.installationId,
+          set: {
             lastSeenAt: now,
             updatedAt: now,
-          })
-          .where(eq(users.id, user.id));
+          },
+        })
+        .returning({
+          id: installations.id,
+          userId: installations.userId,
+          createdAt: installations.createdAt,
+          updatedAt: installations.updatedAt,
+        });
 
-        return {
-          conflict: false as const,
-          created: true,
-          newUser: isNewUser,
-          newInstallation: true,
-          userId: user.id,
-          installationId,
-        };
-      });
-
-      /*
-       * Installation identity conflict.
-       */
-      if ("conflict" in result && result.conflict) {
+      // Conflict detection: installationId belongs to another user
+      if (inst.userId !== user.id) {
         return reply.code(409).send({
           error: "INSTALLATION_ID_CONFLICT",
           message:
@@ -182,25 +92,22 @@ export async function installRoutes(app: FastifyInstance) {
         });
       }
 
-      /*
-       * New user OR new installation.
-       */
-      if (result.created) {
+      const isNewInstallation =
+        Math.abs(inst.createdAt.getTime() - inst.updatedAt.getTime()) < 1000;
+
+      if (isNewInstallation) {
         return reply.code(201).send({
           created: true,
-          userId: result.userId,
-          installationId: result.installationId,
+          userId: user.id,
+          installationId,
         });
       }
 
-      /*
-       * Existing installation reconnect.
-       */
-      return {
+      return reply.code(200).send({
         created: false,
-        userId: result.userId,
-        installationId: result.installationId,
-      };
+        userId: user.id,
+        installationId,
+      });
     },
   );
 }

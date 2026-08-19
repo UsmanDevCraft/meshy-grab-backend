@@ -5,7 +5,10 @@ import { getUserByInstallationId } from "../services/entitlement.js";
 import { consumeDownload } from "../services/downloads.js";
 
 import { ERROR_CODES } from "../config/errors.js";
-import { consumeDownloadBodySchema } from "../schemas/downloads.js";
+import {
+  consumeDownloadBodySchema,
+  consumeDownloadResponseSchema,
+} from "../schemas/downloads.js";
 
 export async function downloadRoutes(app: FastifyInstance) {
   app.post(
@@ -20,6 +23,7 @@ export async function downloadRoutes(app: FastifyInstance) {
 
       schema: {
         body: consumeDownloadBodySchema,
+        response: consumeDownloadResponseSchema,
       },
     },
 
