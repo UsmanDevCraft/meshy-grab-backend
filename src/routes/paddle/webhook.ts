@@ -8,8 +8,8 @@ import {
 } from "../../services/subscription.js";
 
 const paddle = new Paddle(env.PADDLE_API_KEY, {
-  // environment: Environment.production,
-  environment: Environment.sandbox,
+  environment: Environment.production,
+  // environment: Environment.sandbox,
 });
 
 export const webhookRoutes: FastifyPluginAsync = async (fastify) => {

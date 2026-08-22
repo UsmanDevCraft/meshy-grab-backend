@@ -7,8 +7,8 @@ import { db } from "../../db/client.js";
 import { installations, users } from "../../db/schema.js";
 
 const paddle = new Paddle(env.PADDLE_API_KEY, {
-  // environment: Environment.production,
-  environment: Environment.sandbox,
+  environment: Environment.production,
+  // environment: Environment.sandbox,
 });
 
 export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
