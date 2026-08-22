@@ -22,11 +22,11 @@ export const users = pgTable(
 
     isPaid: boolean("is_paid").notNull().default(false),
 
-    creemCustomerId: varchar("creem_customer_id", {
+    paddleCustomerId: varchar("paddle_customer_id", {
       length: 255,
     }),
 
-    creemSubscriptionId: varchar("creem_subscription_id", {
+    paddleSubscriptionId: varchar("paddle_subscription_id", {
       length: 255,
     }),
 
@@ -54,11 +54,11 @@ export const users = pgTable(
   },
   (table) => ({
     emailIdx: index("users_email_idx").on(table.email),
-    creemCustomerIdIdx: index("users_creem_customer_id_idx").on(
-      table.creemCustomerId,
+    paddleCustomerIdIdx: index("users_paddle_customer_id_idx").on(
+      table.paddleCustomerId,
     ),
-    creemSubscriptionIdIdx: index("users_creem_subscription_id_idx").on(
-      table.creemSubscriptionId,
+    paddleSubscriptionIdIdx: index("users_paddle_subscription_id_idx").on(
+      table.paddleSubscriptionId,
     ),
   }),
 );
@@ -118,19 +118,23 @@ export const subscriptions = pgTable(
         onDelete: "cascade",
       }),
 
-    creemCustomerId: varchar("creem_customer_id", {
+    paddleCustomerId: varchar("paddle_customer_id", {
       length: 255,
     }),
 
-    creemSubscriptionId: varchar("creem_subscription_id", {
+    paddleSubscriptionId: varchar("paddle_subscription_id", {
       length: 255,
     }).unique(),
 
-    creemProductId: varchar("creem_product_id", {
+    paddleTransactionId: varchar("paddle_transaction_id", {
       length: 255,
     }),
 
-    status: varchar("status", {
+    paddlePriceId: varchar("paddle_price_id", {
+      length: 255,
+    }),
+
+    status: varchar("subscription_status", {
       length: 50,
     })
       .notNull()
@@ -160,12 +164,12 @@ export const subscriptions = pgTable(
   },
   (table) => ({
     userIdIdx: index("subscriptions_user_id_idx").on(table.userId),
-    creemCustomerIdIdx: index("subscriptions_creem_customer_id_idx").on(
-      table.creemCustomerId,
+    paddleCustomerIdIdx: index("subscriptions_paddle_customer_id_idx").on(
+      table.paddleCustomerId,
     ),
-    creemSubscriptionIdIdx: index("subscriptions_creem_subscription_id_idx").on(
-      table.creemSubscriptionId,
-    ),
+    paddleSubscriptionIdIdx: index(
+      "subscriptions_paddle_subscription_id_idx",
+    ).on(table.paddleSubscriptionId),
   }),
 );
 

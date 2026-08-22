@@ -14,8 +14,8 @@ export async function getUserById(userId: string) {
       email: users.email,
       isPaid: users.isPaid,
       freeDownloadsUsed: users.freeDownloadsUsed,
-      creemCustomerId: users.creemCustomerId,
-      creemSubscriptionId: users.creemSubscriptionId,
+      paddleCustomerId: users.paddleCustomerId,
+      paddleSubscriptionId: users.paddleSubscriptionId,
       paidAt: users.paidAt,
     })
     .from(users)
@@ -32,8 +32,8 @@ export async function getUserByInstallationId(installationId: string) {
       email: users.email,
       isPaid: users.isPaid,
       freeDownloadsUsed: users.freeDownloadsUsed,
-      creemCustomerId: users.creemCustomerId,
-      creemSubscriptionId: users.creemSubscriptionId,
+      paddleCustomerId: users.paddleCustomerId,
+      paddleSubscriptionId: users.paddleSubscriptionId,
       paidAt: users.paidAt,
     })
     .from(installations)
@@ -50,8 +50,10 @@ export async function getUserSubscription(userId: string) {
       id: subscriptions.id,
       userId: subscriptions.userId,
       status: subscriptions.status,
-      creemCustomerId: subscriptions.creemCustomerId,
-      creemSubscriptionId: subscriptions.creemSubscriptionId,
+      paddleCustomerId: subscriptions.paddleCustomerId,
+      paddleSubscriptionId: subscriptions.paddleSubscriptionId,
+      paddleTransactionId: subscriptions.paddleTransactionId,
+      paddlePriceId: subscriptions.paddlePriceId,
     })
     .from(subscriptions)
     .where(eq(subscriptions.userId, userId))
@@ -74,12 +76,12 @@ export async function getUserAndSubscription(query: {
     email: users.email,
     isPaid: users.isPaid,
     freeDownloadsUsed: users.freeDownloadsUsed,
-    creemCustomerId: users.creemCustomerId,
-    creemSubscriptionId: users.creemSubscriptionId,
+    paddleCustomerId: users.paddleCustomerId,
+    paddleSubscriptionId: users.paddleSubscriptionId,
     paidAt: users.paidAt,
     subStatus: subscriptions.status,
-    subCreemCustomerId: subscriptions.creemCustomerId,
-    subCreemSubscriptionId: subscriptions.creemSubscriptionId,
+    subPaddleCustomerId: subscriptions.paddleCustomerId,
+    subPaddleSubscriptionId: subscriptions.paddleSubscriptionId,
   };
 
   if (userId) {
@@ -111,11 +113,16 @@ export async function getUserAndSubscription(query: {
 export function isProSubscription(status?: string | null, isPaid?: boolean) {
   return (
     isPaid === true ||
-    status === SUBSCRIPTION_STATUSES.ACTIVE ||
-    status === SUBSCRIPTION_STATUSES.TRIALING
+    status === "active" ||
+    status === SUBSCRIPTION_STATUSES.ACTIVE
   );
 }
 
 export function getFreeDownloadsRemaining(freeDownloadsUsed: number) {
   return Math.max(0, FREE_DOWNLOAD_LIMIT - freeDownloadsUsed);
 }
+
+export {
+  upsertPaddleSubscription,
+  revokePaddleSubscription,
+} from "./subscription.js";

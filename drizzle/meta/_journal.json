@@ -50,6 +50,13 @@
       "when": 1787127022152,
       "tag": "0006_green_frog_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787305380247,
+      "tag": "0007_paddle_refactor",
+      "breakpoints": true
     }
   ]
 }

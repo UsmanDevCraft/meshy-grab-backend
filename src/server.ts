@@ -9,8 +9,8 @@ import { healthRoutes } from "./routes/health.js";
 import { entitlementRoutes } from "./routes/entitlement.js";
 import { installRoutes } from "./routes/install.js";
 import { downloadRoutes } from "./routes/downloads.js";
-import { checkoutRoutes } from "./routes/checkout.js";
-import { webhookRoutes } from "./routes/webhook.js";
+import { checkoutRoutes } from "./routes/paddle/checkout.js";
+import { webhookRoutes } from "./routes/paddle/webhook.js";
 
 const port = Number(process.env.PORT) || env.PORT || 3000;
 const host = process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1";

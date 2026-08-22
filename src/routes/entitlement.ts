@@ -38,8 +38,8 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
         freeDownloadsUsed: 0,
         freeDownloadsRemaining: FREE_DOWNLOAD_LIMIT,
         subscriptionStatus: "inactive",
-        creemCustomerId: null,
-        creemSubscriptionId: null,
+        paddleCustomerId: null,
+        paddleSubscriptionId: null,
         paidAt: null,
       },
     };
@@ -59,12 +59,12 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
       freeDownloadsRemaining: isPro
         ? null
         : getFreeDownloadsRemaining(user.freeDownloadsUsed),
-      subscriptionStatus: user.isPaid
-        ? "active"
-        : (user.subStatus ?? "inactive"),
-      creemCustomerId: user.creemCustomerId ?? user.subCreemCustomerId ?? null,
-      creemSubscriptionId:
-        user.creemSubscriptionId ?? user.subCreemSubscriptionId ?? null,
+      subscriptionStatus:
+        user.subStatus ?? (user.isPaid ? "active" : "inactive"),
+      paddleCustomerId:
+        user.paddleCustomerId ?? user.subPaddleCustomerId ?? null,
+      paddleSubscriptionId:
+        user.paddleSubscriptionId ?? user.subPaddleSubscriptionId ?? null,
       paidAt: user.paidAt ? user.paidAt.toISOString() : null,
     },
   };
