@@ -7,9 +7,12 @@ import {
   upsertPaddleSubscription,
 } from "../../services/subscription.js";
 
+const paddleEnvironment = env.PADDLE_CLIENT_TOKEN.startsWith("live_")
+  ? Environment.production
+  : Environment.sandbox;
+
 const paddle = new Paddle(env.PADDLE_API_KEY, {
-  environment: Environment.production,
-  // environment: Environment.sandbox,
+  environment: paddleEnvironment,
 });
 
 export const webhookRoutes: FastifyPluginAsync = async (fastify) => {

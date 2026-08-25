@@ -6,9 +6,12 @@ import { env } from "../../config/env.js";
 import { db } from "../../db/client.js";
 import { installations, users } from "../../db/schema.js";
 
+const paddleEnvironment = env.PADDLE_CLIENT_TOKEN.startsWith("live_")
+  ? Environment.production
+  : Environment.sandbox;
+
 const paddle = new Paddle(env.PADDLE_API_KEY, {
-  environment: Environment.production,
-  // environment: Environment.sandbox,
+  environment: paddleEnvironment,
 });
 
 export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
