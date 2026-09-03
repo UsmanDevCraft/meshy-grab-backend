@@ -1,4 +1,5 @@
 export const FREE_DOWNLOAD_LIMIT = 2;
+export const FREE_TEXTURE_DOWNLOAD_LIMIT = 8;
 
 export const DOWNLOAD_EVENT_STATUSES = {
   CONSUMED: "consumed",

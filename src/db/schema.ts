@@ -20,6 +20,10 @@ export const users = pgTable(
 
     freeDownloadsUsed: integer("free_downloads_used").notNull().default(0),
 
+    textureDownloadsUsed: integer("texture_downloads_used")
+      .notNull()
+      .default(0),
+
     isPaid: boolean("is_paid").notNull().default(false),
 
     paddleCustomerId: varchar("paddle_customer_id", {

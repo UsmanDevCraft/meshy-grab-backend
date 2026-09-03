@@ -26,6 +26,8 @@ export const entitlementResponseSchema = {
       plan: { type: "string" },
       freeDownloadsUsed: { type: "number" },
       freeDownloadsRemaining: { type: ["number", "null"] },
+      textureDownloadsUsed: { type: "number" },
+      textureDownloadsRemaining: { type: ["number", "null"] },
       subscriptionStatus: { type: "string" },
       paddleCustomerId: { type: ["string", "null"] },
       paddleSubscriptionId: { type: ["string", "null"] },

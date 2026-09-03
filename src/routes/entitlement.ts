@@ -1,8 +1,12 @@
 import { FastifyInstance } from "fastify";
-import { FREE_DOWNLOAD_LIMIT } from "../config/constants.js";
+import {
+  FREE_DOWNLOAD_LIMIT,
+  FREE_TEXTURE_DOWNLOAD_LIMIT,
+} from "../config/constants.js";
 
 import {
   getFreeDownloadsRemaining,
+  getFreeTextureDownloadsRemaining,
   getUserAndSubscription,
   isProSubscription,
 } from "../services/entitlement.js";
@@ -37,6 +41,8 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
         plan: "free",
         freeDownloadsUsed: 0,
         freeDownloadsRemaining: FREE_DOWNLOAD_LIMIT,
+        textureDownloadsUsed: 0,
+        textureDownloadsRemaining: FREE_TEXTURE_DOWNLOAD_LIMIT,
         subscriptionStatus: "inactive",
         paddleCustomerId: null,
         paddleSubscriptionId: null,
@@ -59,6 +65,10 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
       freeDownloadsRemaining: isPro
         ? null
         : getFreeDownloadsRemaining(user.freeDownloadsUsed),
+      textureDownloadsUsed: user.textureDownloadsUsed ?? 0,
+      textureDownloadsRemaining: isPro
+        ? null
+        : getFreeTextureDownloadsRemaining(user.textureDownloadsUsed ?? 0),
       subscriptionStatus:
         user.subStatus ?? (user.isPaid ? "active" : "inactive"),
       paddleCustomerId:
