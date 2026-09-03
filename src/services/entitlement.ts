@@ -4,6 +4,7 @@ import { db } from "../db/client.js";
 import { installations, subscriptions, users } from "../db/schema.js";
 import {
   FREE_DOWNLOAD_LIMIT,
+  FREE_TEXTURE_DOWNLOAD_LIMIT,
   SUBSCRIPTION_STATUSES,
 } from "../config/constants.js";
 
@@ -14,6 +15,7 @@ export async function getUserById(userId: string) {
       email: users.email,
       isPaid: users.isPaid,
       freeDownloadsUsed: users.freeDownloadsUsed,
+      textureDownloadsUsed: users.textureDownloadsUsed,
       paddleCustomerId: users.paddleCustomerId,
       paddleSubscriptionId: users.paddleSubscriptionId,
       paidAt: users.paidAt,
@@ -32,6 +34,7 @@ export async function getUserByInstallationId(installationId: string) {
       email: users.email,
       isPaid: users.isPaid,
       freeDownloadsUsed: users.freeDownloadsUsed,
+      textureDownloadsUsed: users.textureDownloadsUsed,
       paddleCustomerId: users.paddleCustomerId,
       paddleSubscriptionId: users.paddleSubscriptionId,
       paidAt: users.paidAt,
@@ -76,6 +79,7 @@ export async function getUserAndSubscription(query: {
     email: users.email,
     isPaid: users.isPaid,
     freeDownloadsUsed: users.freeDownloadsUsed,
+    textureDownloadsUsed: users.textureDownloadsUsed,
     paddleCustomerId: users.paddleCustomerId,
     paddleSubscriptionId: users.paddleSubscriptionId,
     paidAt: users.paidAt,
@@ -120,6 +124,10 @@ export function isProSubscription(status?: string | null, isPaid?: boolean) {
 
 export function getFreeDownloadsRemaining(freeDownloadsUsed: number) {
   return Math.max(0, FREE_DOWNLOAD_LIMIT - freeDownloadsUsed);
+}
+
+export function getFreeTextureDownloadsRemaining(textureDownloadsUsed: number) {
+  return Math.max(0, FREE_TEXTURE_DOWNLOAD_LIMIT - textureDownloadsUsed);
 }
 
 export {

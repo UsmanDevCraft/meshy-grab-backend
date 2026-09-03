@@ -9,6 +9,7 @@ import { healthRoutes } from "./routes/health.js";
 import { entitlementRoutes } from "./routes/entitlement.js";
 import { installRoutes } from "./routes/install.js";
 import { downloadRoutes } from "./routes/downloads.js";
+import { textureRoutes } from "./routes/textures.js";
 import { checkoutRoutes } from "./routes/paddle/checkout.js";
 import { webhookRoutes } from "./routes/paddle/webhook.js";
 
@@ -57,6 +58,7 @@ await app.register(healthRoutes);
 await app.register(entitlementRoutes);
 await app.register(installRoutes);
 await app.register(downloadRoutes);
+await app.register(textureRoutes);
 await app.register(checkoutRoutes);
 await app.register(webhookRoutes);
 

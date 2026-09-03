@@ -57,6 +57,13 @@
       "when": 1787305380247,
       "tag": "0007_paddle_refactor",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787305390000,
+      "tag": "0008_add_texture_downloads",
+      "breakpoints": true
     }
   ]
 }
