@@ -1,10 +1,13 @@
 import { eq } from "drizzle-orm";
 
+import { env } from "../config/env.js";
 import { db } from "../db/client.js";
 import { subscriptions, users } from "../db/schema.js";
+import { Plan } from "../types/plan.js";
 
 export interface UpsertPaddleSubscriptionParams {
   userId: string;
+  plan?: string | null;
   paddleCustomerId?: string | null;
   paddleSubscriptionId?: string | null;
   paddleTransactionId?: string | null;
@@ -14,11 +17,56 @@ export interface UpsertPaddleSubscriptionParams {
   currentPeriodEnd?: Date | null;
 }
 
+export function resolvePlanFromPriceOrCustomData(
+  customDataPlan?: string | null,
+  paddlePriceId?: string | null,
+): Plan {
+  if (
+    customDataPlan === "pro_monthly" ||
+    customDataPlan === "pro_annual" ||
+    customDataPlan === "lifetime"
+  ) {
+    return customDataPlan;
+  }
+
+  if (paddlePriceId) {
+    if (paddlePriceId === env.PADDLE_PRICE_ID_MONTHLY) {
+      return "pro_monthly";
+    }
+    if (paddlePriceId === env.PADDLE_PRICE_ID_ANNUALLY) {
+      return "pro_annual";
+    }
+    if (paddlePriceId === env.PADDLE_PRICE_ID_LIFETIME) {
+      return "lifetime";
+    }
+  }
+
+  return "pro_monthly";
+}
+
+export async function setUserLifetimePlan(
+  userId: string,
+  paddleCustomerId?: string | null,
+) {
+  const now = new Date();
+  await db
+    .update(users)
+    .set({
+      isPaid: true,
+      plan: "lifetime",
+      paddleCustomerId: paddleCustomerId ?? undefined,
+      paidAt: now,
+      updatedAt: now,
+    })
+    .where(eq(users.id, userId));
+}
+
 export async function upsertPaddleSubscription(
   params: UpsertPaddleSubscriptionParams,
 ) {
   const {
     userId,
+    plan: customDataPlan,
     paddleCustomerId,
     paddleSubscriptionId,
     paddleTransactionId,
@@ -29,7 +77,10 @@ export async function upsertPaddleSubscription(
   } = params;
 
   const now = new Date();
-  const isActive = status === "active";
+  const isActive = status === "active" || status === "trialing";
+  const resolvedPlan = isActive
+    ? resolvePlanFromPriceOrCustomData(customDataPlan, paddlePriceId)
+    : null;
 
   // 1. Upsert subscription record in subscriptions table by userId
   await db
@@ -59,11 +110,28 @@ export async function upsertPaddleSubscription(
       },
     });
 
-  // 2. Update user status in users table
+  // 2. Update user status in users table (unless user is on active lifetime plan)
+  const [currentUser] = await db
+    .select({ plan: users.plan })
+    .from(users)
+    .where(eq(users.id, userId));
+
+  if (currentUser?.plan === "lifetime") {
+    // Preserve lifetime status, but update paddleCustomerId if provided
+    if (paddleCustomerId) {
+      await db
+        .update(users)
+        .set({ paddleCustomerId, updatedAt: now })
+        .where(eq(users.id, userId));
+    }
+    return;
+  }
+
   await db
     .update(users)
     .set({
       isPaid: isActive,
+      plan: isActive ? resolvedPlan : null,
       paddleCustomerId: paddleCustomerId ?? undefined,
       paddleSubscriptionId: paddleSubscriptionId ?? undefined,
       paidAt: isActive ? now : undefined,
@@ -101,11 +169,19 @@ export async function revokePaddleSubscription(
       .where(eq(subscriptions.userId, userId));
   }
 
-  await db
-    .update(users)
-    .set({
-      isPaid: false,
-      updatedAt: now,
-    })
+  const [currentUser] = await db
+    .select({ plan: users.plan })
+    .from(users)
     .where(eq(users.id, userId));
+
+  if (currentUser?.plan !== "lifetime") {
+    await db
+      .update(users)
+      .set({
+        isPaid: false,
+        plan: null,
+        updatedAt: now,
+      })
+      .where(eq(users.id, userId));
+  }
 }

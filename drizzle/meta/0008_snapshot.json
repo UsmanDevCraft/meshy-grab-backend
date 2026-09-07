@@ -1,6 +1,6 @@
 {
-  "id": "ad816329-b7a7-4d2f-91a8-b6d964dab13b",
-  "prevId": "397c0092-69e1-43a6-97f8-954ab25cf9e8",
+  "id": "e7b92f41-0008-4d2f-91a8-b6d964dab13b",
+  "prevId": "ad816329-b7a7-4d2f-91a8-b6d964dab13b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -399,6 +399,13 @@
         },
         "free_downloads_used": {
           "name": "free_downloads_used",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "texture_downloads_used": {
+          "name": "texture_downloads_used",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

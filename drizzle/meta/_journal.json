@@ -64,6 +64,13 @@
       "when": 1787305390000,
       "tag": "0008_add_texture_downloads",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787305400000,
+      "tag": "0009_add_plan_columns",
+      "breakpoints": true
     }
   ]
 }

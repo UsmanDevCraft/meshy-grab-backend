@@ -21,6 +21,7 @@ export async function consumeDownload(
     .select({
       id: users.id,
       isPaid: users.isPaid,
+      plan: users.plan,
       freeDownloadsUsed: users.freeDownloadsUsed,
       subStatus: subscriptions.status,
     })
@@ -38,6 +39,8 @@ export async function consumeDownload(
     userWithSub.subStatus === SUBSCRIPTION_STATUSES.ACTIVE ||
     userWithSub.subStatus === SUBSCRIPTION_STATUSES.TRIALING;
 
+  const currentPlan = isPro ? (userWithSub.plan ?? null) : null;
+
   // 2. Single-statement atomic insert with onConflictDoNothing
   const [downloadRecord] = await db
     .insert(downloads)
@@ -46,6 +49,7 @@ export async function consumeDownload(
       userId,
       previewUrl: previewUrl ?? null,
       modelUrl: modelUrl ?? null,
+      plan: currentPlan,
     })
     .onConflictDoNothing({
       target: [downloads.userId, downloads.taskId],
