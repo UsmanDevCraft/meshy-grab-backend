@@ -208,6 +208,10 @@ export const downloads = pgTable(
       length: 50,
     }),
 
+    downloadType: varchar("download_type", {
+      length: 128,
+    }),
+
     createdAt: timestamp("created_at", {
       withTimezone: true,
     })

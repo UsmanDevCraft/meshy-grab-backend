@@ -15,6 +15,7 @@ export async function consumeDownload(
   taskId: string,
   previewUrl?: string | null,
   modelUrl?: string | null,
+  downloadType?: string | null,
 ) {
   // 1. Single round-trip field-projected query for user & subscription entitlement status
   const [userWithSub] = await db
@@ -50,6 +51,7 @@ export async function consumeDownload(
       previewUrl: previewUrl ?? null,
       modelUrl: modelUrl ?? null,
       plan: currentPlan,
+      downloadType: downloadType ?? null,
     })
     .onConflictDoNothing({
       target: [downloads.userId, downloads.taskId],

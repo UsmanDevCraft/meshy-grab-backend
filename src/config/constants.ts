@@ -13,6 +13,15 @@ export const SUBSCRIPTION_STATUSES = {
   PAST_DUE: "past_due",
 } as const;
 
+export const DOWNLOAD_TYPES = {
+  GLB: "glb",
+  OBJ: "obj",
+  FBX: "fbx",
+} as const;
+
+export const ALLOWED_DOWNLOAD_TYPES = ["glb", "obj", "fbx"] as const;
+export type DownloadType = (typeof ALLOWED_DOWNLOAD_TYPES)[number];
+
 export const API = {
   VERSION: "v1",
 } as const;
