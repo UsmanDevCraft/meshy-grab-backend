@@ -17,30 +17,66 @@ const paddle = new Paddle(env.PADDLE_API_KEY, {
 export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/api/checkout", async (request, reply) => {
     const body = request.body as {
+      plan?: string;
       priceId?: string;
       userId?: string;
       email?: string;
       installationId?: string;
     };
 
-    const { priceId, userId, email, installationId } = body || {};
+    const {
+      plan: rawPlan,
+      priceId: rawPriceId,
+      userId,
+      email,
+      installationId,
+    } = body || {};
 
     if (
-      !priceId ||
+      (!rawPlan && !rawPriceId) ||
       !userId ||
       typeof email !== "string" ||
       !email.trim() ||
       !installationId
     ) {
       return reply.status(400).send({
-        error: "priceId, userId, email, and installationId are required",
+        error: "plan, userId, email, and installationId are required",
       });
     }
 
-    if (priceId !== env.PADDLE_PRICE_ID) {
-      return reply.status(400).send({
-        error: "Invalid priceId",
-      });
+    let plan: "pro_monthly" | "pro_annual" | "lifetime";
+    let priceId: string;
+
+    if (rawPlan) {
+      if (rawPlan === "pro_monthly") {
+        plan = "pro_monthly";
+        priceId = env.PADDLE_PRICE_ID_MONTHLY;
+      } else if (rawPlan === "pro_annual") {
+        plan = "pro_annual";
+        priceId = env.PADDLE_PRICE_ID_ANNUALLY;
+      } else if (rawPlan === "lifetime") {
+        plan = "lifetime";
+        priceId = env.PADDLE_PRICE_ID_LIFETIME;
+      } else {
+        return reply.status(400).send({
+          error: "Invalid plan",
+        });
+      }
+    } else {
+      if (rawPriceId === env.PADDLE_PRICE_ID_MONTHLY) {
+        plan = "pro_monthly";
+        priceId = env.PADDLE_PRICE_ID_MONTHLY;
+      } else if (rawPriceId === env.PADDLE_PRICE_ID_ANNUALLY) {
+        plan = "pro_annual";
+        priceId = env.PADDLE_PRICE_ID_ANNUALLY;
+      } else if (rawPriceId === env.PADDLE_PRICE_ID_LIFETIME) {
+        plan = "lifetime";
+        priceId = env.PADDLE_PRICE_ID_LIFETIME;
+      } else {
+        return reply.status(400).send({
+          error: "Invalid priceId",
+        });
+      }
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -145,7 +181,7 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
           .where(eq(users.id, user.id));
       }
 
-      // 4. Create Paddle transaction with locked customer email & customData.userId
+      // 4. Create Paddle transaction with locked customer email & customData
       const transaction = await paddle.transactions.create({
         items: [
           {
@@ -157,6 +193,7 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
         customData: {
           userId,
           installationId,
+          plan,
         },
       });
 

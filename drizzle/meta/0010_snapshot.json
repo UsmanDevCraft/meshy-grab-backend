@@ -1,6 +1,6 @@
 {
-  "id": "ad816329-b7a7-4d2f-91a8-b6d964dab13b",
-  "prevId": "397c0092-69e1-43a6-97f8-954ab25cf9e8",
+  "id": "59bd9079-a805-4575-bd32-d6a72b459caa",
+  "prevId": "f8c93a52-0009-4d2f-91a8-b6d964dab13b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -39,6 +39,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "plan": {
+          "name": "plan",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "download_type": {
+          "name": "download_type",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -59,9 +71,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "downloads_task_id_idx": {
           "name": "downloads_task_id_idx",
@@ -74,35 +86,35 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "downloads_user_id_users_id_fk": {
           "name": "downloads_user_id_users_id_fk",
           "tableFrom": "downloads",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "downloads_user_task_unique": {
           "name": "downloads_user_task_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "user_id",
             "task_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -166,9 +178,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "installations_installation_id_idx": {
           "name": "installations_installation_id_idx",
@@ -181,34 +193,34 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "installations_user_id_users_id_fk": {
           "name": "installations_user_id_users_id_fk",
           "tableFrom": "installations",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "installations_installation_id_unique": {
           "name": "installations_installation_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "installation_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -256,7 +268,7 @@
           "primaryKey": false,
           "notNull": false
         },
-        "status": {
+        "subscription_status": {
           "name": "subscription_status",
           "type": "varchar(50)",
           "primaryKey": false,
@@ -309,9 +321,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "subscriptions_paddle_customer_id_idx": {
           "name": "subscriptions_paddle_customer_id_idx",
@@ -324,9 +336,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "subscriptions_paddle_subscription_id_idx": {
           "name": "subscriptions_paddle_subscription_id_idx",
@@ -339,41 +351,41 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "subscriptions_user_id_users_id_fk": {
           "name": "subscriptions_user_id_users_id_fk",
           "tableFrom": "subscriptions",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "subscriptions_user_id_unique": {
           "name": "subscriptions_user_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "user_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         },
         "subscriptions_paddle_subscription_id_unique": {
           "name": "subscriptions_paddle_subscription_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "paddle_subscription_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -404,12 +416,25 @@
           "notNull": true,
           "default": 0
         },
+        "texture_downloads_used": {
+          "name": "texture_downloads_used",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "is_paid": {
           "name": "is_paid",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "plan": {
+          "name": "plan",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
         },
         "paddle_customer_id": {
           "name": "paddle_customer_id",
@@ -463,9 +488,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "users_paddle_customer_id_idx": {
           "name": "users_paddle_customer_id_idx",
@@ -478,9 +503,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "users_paddle_subscription_id_idx": {
           "name": "users_paddle_subscription_id_idx",
@@ -493,9 +518,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -503,10 +528,10 @@
       "uniqueConstraints": {
         "users_email_unique": {
           "name": "users_email_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "email"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -516,19 +541,12 @@
   },
   "enums": {},
   "schemas": {},
-  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
+  "views": {},
   "_meta": {
-    "columns": {
-      "public.subscriptions.creem_customer_id": "public.subscriptions.paddle_customer_id",
-      "public.subscriptions.creem_subscription_id": "public.subscriptions.paddle_subscription_id",
-      "public.subscriptions.creem_product_id": "public.subscriptions.paddle_price_id",
-      "public.subscriptions.status": "public.subscriptions.subscription_status",
-      "public.users.creem_customer_id": "public.users.paddle_customer_id",
-      "public.users.creem_subscription_id": "public.users.paddle_subscription_id"
-    },
+    "columns": {},
     "schemas": {},
     "tables": {}
   }

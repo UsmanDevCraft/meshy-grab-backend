@@ -1,3 +1,5 @@
+import { ALLOWED_DOWNLOAD_TYPES } from "../config/constants.js";
+
 export const consumeDownloadBodySchema = {
   type: "object",
 
@@ -28,6 +30,12 @@ export const consumeDownloadBodySchema = {
       type: "string",
       nullable: true,
       maxLength: 2048,
+    },
+
+    downloadType: {
+      type: "string",
+      nullable: true,
+      maxLength: 128,
     },
   },
 } as const;

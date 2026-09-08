@@ -26,6 +26,10 @@ export const users = pgTable(
 
     isPaid: boolean("is_paid").notNull().default(false),
 
+    plan: varchar("plan", {
+      length: 50,
+    }),
+
     paddleCustomerId: varchar("paddle_customer_id", {
       length: 255,
     }),
@@ -198,6 +202,14 @@ export const downloads = pgTable(
 
     modelUrl: varchar("model_url", {
       length: 2048,
+    }),
+
+    plan: varchar("plan", {
+      length: 50,
+    }),
+
+    downloadType: varchar("download_type", {
+      length: 128,
     }),
 
     createdAt: timestamp("created_at", {

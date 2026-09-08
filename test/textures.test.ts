@@ -203,7 +203,7 @@ describe("Texture API Routes - /entitlement and /textures/consume", () => {
         method: "GET",
         url: `/entitlement?installationId=${instId}`,
       });
-      assert.equal(entitlementRes.json().plan, "pro");
+      assert.equal(entitlementRes.json().plan, "pro_monthly");
       assert.equal(entitlementRes.json().textureDownloadsRemaining, null);
 
       // Consume texture download as pro user

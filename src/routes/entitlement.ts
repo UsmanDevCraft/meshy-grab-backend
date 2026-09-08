@@ -60,7 +60,7 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
       userId: user.id,
       email: user.email,
       isPaid: user.isPaid ?? false,
-      plan: isPro ? "pro" : "free",
+      plan: isPro ? (user.plan ?? "pro_monthly") : "free",
       freeDownloadsUsed: user.freeDownloadsUsed,
       freeDownloadsRemaining: isPro
         ? null

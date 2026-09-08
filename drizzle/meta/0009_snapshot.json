@@ -1,6 +1,6 @@
 {
-  "id": "ad816329-b7a7-4d2f-91a8-b6d964dab13b",
-  "prevId": "397c0092-69e1-43a6-97f8-954ab25cf9e8",
+  "id": "f8c93a52-0009-4d2f-91a8-b6d964dab13b",
+  "prevId": "e7b92f41-0008-4d2f-91a8-b6d964dab13b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -36,6 +36,12 @@
         "model_url": {
           "name": "model_url",
           "type": "varchar(2048)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plan": {
+          "name": "plan",
+          "type": "varchar(50)",
           "primaryKey": false,
           "notNull": false
         },
@@ -404,12 +410,25 @@
           "notNull": true,
           "default": 0
         },
+        "texture_downloads_used": {
+          "name": "texture_downloads_used",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "is_paid": {
           "name": "is_paid",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "plan": {
+          "name": "plan",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
         },
         "paddle_customer_id": {
           "name": "paddle_customer_id",

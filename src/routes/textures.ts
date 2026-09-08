@@ -53,28 +53,31 @@ async function handleTextureConsumption(
 }
 
 export async function textureRoutes(app: FastifyInstance) {
-  // POST /api/textures/consume
-  app.post(
-    "/api/textures/consume",
-    {
-      config: {
-        rateLimit: {
-          max: 10,
-          timeWindow: "1 minute",
-        },
-      },
-      schema: {
-        body: consumeTextureBodySchema,
-        response: consumeTextureResponseSchema,
+  const consumeOptions = {
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: "1 minute",
       },
     },
-    async (request, reply) => {
-      const { installationId } = request.body as {
-        installationId: string;
-      };
+    schema: {
+      body: consumeTextureBodySchema,
+      response: consumeTextureResponseSchema,
+    },
+  };
 
-      const res = await handleTextureConsumption(installationId, request.log);
-      return reply.code(res.statusCode as 200 | 403 | 404).send(res.body);
-    },
-  );
+  const handler = async (request: any, reply: any) => {
+    const { installationId } = request.body as {
+      installationId: string;
+    };
+
+    const res = await handleTextureConsumption(installationId, request.log);
+    return reply.code(res.statusCode as 200 | 403 | 404).send(res.body);
+  };
+
+  // POST /textures/consume
+  app.post("/textures/consume", consumeOptions, handler);
+
+  // POST /api/textures/consume
+  app.post("/api/textures/consume", consumeOptions, handler);
 }

@@ -4,6 +4,7 @@ import { Environment, EventName, Paddle } from "@paddle/paddle-node-sdk";
 import { env } from "../../config/env.js";
 import {
   revokePaddleSubscription,
+  setUserLifetimePlan,
   upsertPaddleSubscription,
 } from "../../services/subscription.js";
 
@@ -71,14 +72,13 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
            * ---------------------------------------------------------
            *
            * Paddle has successfully completed processing the payment.
-           *
-           * For recurring items Paddle creates the subscription as part
-           * of this process.
+           * Handles lifetime purchases (one-time payment) as well as recurring items.
            */
           case EventName.TransactionCompleted: {
             const data = event.data;
 
             const userId = data.customData?.userId;
+            const plan = data.customData?.plan;
 
             if (!userId) {
               fastify.log.error(
@@ -91,15 +91,36 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
               break;
             }
 
-            fastify.log.info(
-              {
-                userId,
-                transactionId: data.id,
-                customerId: data.customerId,
-                subscriptionId: data.subscriptionId,
-              },
-              "Paddle transaction completed",
-            );
+            const firstItem = data.items?.[0];
+            const priceId = firstItem?.price?.id;
+
+            const isLifetime =
+              plan === "lifetime" || priceId === env.PADDLE_PRICE_ID_LIFETIME;
+
+            if (isLifetime) {
+              await setUserLifetimePlan(userId, data.customerId ?? null);
+
+              fastify.log.info(
+                {
+                  userId,
+                  transactionId: data.id,
+                  customerId: data.customerId,
+                  plan: "lifetime",
+                },
+                "Lifetime transaction completed and activated",
+              );
+            } else {
+              fastify.log.info(
+                {
+                  userId,
+                  transactionId: data.id,
+                  customerId: data.customerId,
+                  subscriptionId: data.subscriptionId,
+                  plan,
+                },
+                "Paddle transaction completed",
+              );
+            }
 
             break;
           }
@@ -113,6 +134,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
             const data = event.data;
 
             const userId = data.customData?.userId;
+            const plan = data.customData?.plan;
 
             if (!userId) {
               fastify.log.error(
@@ -129,21 +151,15 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
 
             await upsertPaddleSubscription({
               userId,
-
+              plan,
               paddleCustomerId: data.customerId ?? null,
-
               paddleSubscriptionId: data.id,
-
               paddleTransactionId: data.transactionId ?? null,
-
               paddlePriceId: firstItem?.price?.id ?? null,
-
               status: data.status,
-
               currentPeriodStart: data.currentBillingPeriod?.startsAt
                 ? new Date(data.currentBillingPeriod.startsAt)
                 : null,
-
               currentPeriodEnd: data.currentBillingPeriod?.endsAt
                 ? new Date(data.currentBillingPeriod.endsAt)
                 : null,
@@ -154,6 +170,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
                 userId,
                 subscriptionId: data.id,
                 status: data.status,
+                plan,
               },
               "Paddle subscription created and synced",
             );
@@ -170,6 +187,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
             const data = event.data;
 
             const userId = data.customData?.userId;
+            const plan = data.customData?.plan;
 
             if (!userId) {
               fastify.log.error(
@@ -186,21 +204,15 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
 
             await upsertPaddleSubscription({
               userId,
-
+              plan,
               paddleCustomerId: data.customerId ?? null,
-
               paddleSubscriptionId: data.id,
-
               paddleTransactionId: null,
-
               paddlePriceId: firstItem?.price?.id ?? null,
-
               status: data.status,
-
               currentPeriodStart: data.currentBillingPeriod?.startsAt
                 ? new Date(data.currentBillingPeriod.startsAt)
                 : null,
-
               currentPeriodEnd: data.currentBillingPeriod?.endsAt
                 ? new Date(data.currentBillingPeriod.endsAt)
                 : null,
@@ -210,6 +222,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
               {
                 userId,
                 subscriptionId: data.id,
+                plan,
               },
               "Paddle subscription activated",
             );
@@ -221,18 +234,12 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
            * ---------------------------------------------------------
            * SUBSCRIPTION UPDATED
            * ---------------------------------------------------------
-           *
-           * Handles:
-           * - renewals
-           * - plan changes
-           * - pauses
-           * - resumes
-           * - payment state changes
            */
           case EventName.SubscriptionUpdated: {
             const data = event.data;
 
             const userId = data.customData?.userId;
+            const plan = data.customData?.plan;
 
             if (!userId) {
               fastify.log.error(
@@ -249,21 +256,15 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
 
             await upsertPaddleSubscription({
               userId,
-
+              plan,
               paddleCustomerId: data.customerId ?? null,
-
               paddleSubscriptionId: data.id,
-
               paddleTransactionId: null,
-
               paddlePriceId: firstItem?.price?.id ?? null,
-
               status: data.status,
-
               currentPeriodStart: data.currentBillingPeriod?.startsAt
                 ? new Date(data.currentBillingPeriod.startsAt)
                 : null,
-
               currentPeriodEnd: data.currentBillingPeriod?.endsAt
                 ? new Date(data.currentBillingPeriod.endsAt)
                 : null,
