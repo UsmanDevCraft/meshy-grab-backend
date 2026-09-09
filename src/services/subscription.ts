@@ -78,9 +78,11 @@ export async function upsertPaddleSubscription(
 
   const now = new Date();
   const isActive = status === "active" || status === "trialing";
-  const resolvedPlan = isActive
-    ? resolvePlanFromPriceOrCustomData(customDataPlan, paddlePriceId)
-    : null;
+  const subPlan = resolvePlanFromPriceOrCustomData(
+    customDataPlan,
+    paddlePriceId,
+  );
+  const resolvedUserPlan = isActive ? subPlan : null;
 
   // 1. Upsert subscription record in subscriptions table by userId
   await db
@@ -91,6 +93,7 @@ export async function upsertPaddleSubscription(
       paddleSubscriptionId: paddleSubscriptionId ?? null,
       paddleTransactionId: paddleTransactionId ?? null,
       paddlePriceId: paddlePriceId ?? null,
+      plan: subPlan ?? null,
       status,
       currentPeriodStart: currentPeriodStart ?? null,
       currentPeriodEnd: currentPeriodEnd ?? null,
@@ -103,6 +106,7 @@ export async function upsertPaddleSubscription(
         paddleSubscriptionId: paddleSubscriptionId ?? undefined,
         paddleTransactionId: paddleTransactionId ?? undefined,
         paddlePriceId: paddlePriceId ?? undefined,
+        plan: subPlan ?? undefined,
         status,
         currentPeriodStart: currentPeriodStart ?? undefined,
         currentPeriodEnd: currentPeriodEnd ?? undefined,
@@ -131,7 +135,7 @@ export async function upsertPaddleSubscription(
     .update(users)
     .set({
       isPaid: isActive,
-      plan: isActive ? resolvedPlan : null,
+      plan: resolvedUserPlan,
       paddleCustomerId: paddleCustomerId ?? undefined,
       paddleSubscriptionId: paddleSubscriptionId ?? undefined,
       paidAt: isActive ? now : undefined,

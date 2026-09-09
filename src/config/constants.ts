@@ -17,9 +17,17 @@ export const DOWNLOAD_TYPES = {
   GLB: "glb",
   OBJ: "obj",
   FBX: "fbx",
+  STL: "stl",
+  THREE_MF: "3mf",
 } as const;
 
-export const ALLOWED_DOWNLOAD_TYPES = ["glb", "obj", "fbx"] as const;
+export const ALLOWED_DOWNLOAD_TYPES = [
+  "glb",
+  "obj",
+  "fbx",
+  "stl",
+  "3mf",
+] as const;
 export type DownloadType = (typeof ALLOWED_DOWNLOAD_TYPES)[number];
 
 export const API = {

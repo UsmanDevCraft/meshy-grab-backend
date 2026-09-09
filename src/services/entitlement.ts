@@ -54,6 +54,7 @@ export async function getUserSubscription(userId: string) {
     .select({
       id: subscriptions.id,
       userId: subscriptions.userId,
+      plan: subscriptions.plan,
       status: subscriptions.status,
       paddleCustomerId: subscriptions.paddleCustomerId,
       paddleSubscriptionId: subscriptions.paddleSubscriptionId,
@@ -86,6 +87,7 @@ export async function getUserAndSubscription(query: {
     paddleCustomerId: users.paddleCustomerId,
     paddleSubscriptionId: users.paddleSubscriptionId,
     paidAt: users.paidAt,
+    subPlan: subscriptions.plan,
     subStatus: subscriptions.status,
     subPaddleCustomerId: subscriptions.paddleCustomerId,
     subPaddleSubscriptionId: subscriptions.paddleSubscriptionId,
