@@ -142,6 +142,10 @@ export const subscriptions = pgTable(
       length: 255,
     }),
 
+    plan: varchar("plan", {
+      length: 50,
+    }),
+
     status: varchar("subscription_status", {
       length: 50,
     })
@@ -181,20 +185,20 @@ export const subscriptions = pgTable(
   }),
 );
 
-export const downloads = pgTable(
-  "downloads",
+export const models = pgTable(
+  "models",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-
-    taskId: varchar("task_id", {
-      length: 128,
-    }).notNull(),
 
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, {
         onDelete: "cascade",
       }),
+
+    modelKey: varchar("model_key", {
+      length: 128,
+    }).notNull(),
 
     previewUrl: varchar("preview_url", {
       length: 2048,
@@ -204,13 +208,50 @@ export const downloads = pgTable(
       length: 2048,
     }),
 
-    plan: varchar("plan", {
-      length: 50,
-    }),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    userModelKeyUnique: unique("models_user_model_key_unique").on(
+      table.userId,
+      table.modelKey,
+    ),
+    userIdIdx: index("models_user_id_idx").on(table.userId),
+    modelKeyIdx: index("models_model_key_idx").on(table.modelKey),
+  }),
+);
+
+export const downloads = pgTable(
+  "downloads",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+      }),
+
+    modelId: uuid("model_id")
+      .notNull()
+      .references(() => models.id, {
+        onDelete: "cascade",
+      }),
 
     downloadType: varchar("download_type", {
       length: 128,
-    }),
+    })
+      .notNull()
+      .default("glb"),
 
     createdAt: timestamp("created_at", {
       withTimezone: true,
@@ -219,11 +260,10 @@ export const downloads = pgTable(
       .defaultNow(),
   },
   (table) => ({
-    userTaskUnique: unique("downloads_user_task_unique").on(
-      table.userId,
-      table.taskId,
-    ),
+    modelIdDownloadTypeUnique: unique(
+      "downloads_model_id_download_type_unique",
+    ).on(table.modelId, table.downloadType),
     userIdIdx: index("downloads_user_id_idx").on(table.userId),
-    taskIdIdx: index("downloads_task_id_idx").on(table.taskId),
+    modelIdIdx: index("downloads_model_id_idx").on(table.modelId),
   }),
 );
