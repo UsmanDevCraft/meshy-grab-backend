@@ -250,6 +250,35 @@ describe("v2 Community Download System & Plan Rules Tests", () => {
     assert.equal(dlRes.json().communityModelsRemaining, 1);
   });
 
+  test("5b. Pro Max Monthly gets 8 Community models per monthly billing period", async () => {
+    await db.delete(downloads).where(eq(downloads.userId, testUser.id));
+    await db.delete(models).where(eq(models.userId, testUser.id));
+
+    const subIdMax = `sub_max_${Date.now()}`;
+    const periodStart = new Date("2026-09-01T00:00:00Z");
+    const periodEnd = new Date("2026-10-01T00:00:00Z");
+
+    await upsertPaddleSubscription({
+      userId: testUser.id,
+      plan: "pro_max_monthly",
+      paddleCustomerId: "cust_max",
+      paddleSubscriptionId: subIdMax,
+      paddlePriceId: "pri_max",
+      status: "active",
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
+    });
+
+    const entRes = await appV2.inject({
+      method: "GET",
+      url: `/entitlement?installationId=${testInstallationId}`,
+    });
+    assert.equal(entRes.json().plan, "pro_max_monthly");
+    assert.equal(entRes.json().communityModelsUsed, 0);
+    assert.equal(entRes.json().communityModelsRemaining, 8);
+    assert.equal(entRes.json().communityModelsLimit, 8);
+  });
+
   test("6 & 7. Pro Annual gets 40 Community models total for the annual period and does NOT reset monthly", async () => {
     await db.delete(downloads).where(eq(downloads.userId, testUser.id));
     await db.delete(models).where(eq(models.userId, testUser.id));

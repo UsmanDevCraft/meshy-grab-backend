@@ -26,14 +26,14 @@ export interface UserSubInfo {
 }
 
 export interface CommunityEntitlementResult {
-  plan: "free" | "pro_monthly" | "pro_annual" | "lifetime";
+  plan: "free" | "pro_monthly" | "pro_max_monthly" | "pro_annual" | "lifetime";
   communityModelsUsed: number;
   communityModelsRemaining: number | null;
   communityModelsLimit: number | null;
 }
 
 export function resolveCommunityPlan(userWithSub: UserSubInfo): {
-  plan: "free" | "pro_monthly" | "pro_annual" | "lifetime";
+  plan: "free" | "pro_monthly" | "pro_max_monthly" | "pro_annual" | "lifetime";
   limit: number | null;
   periodStart: Date | null;
 } {
@@ -68,6 +68,18 @@ export function resolveCommunityPlan(userWithSub: UserSubInfo): {
     return {
       plan: "pro_annual",
       limit: 40,
+      periodStart: userWithSub.currentPeriodStart ?? null,
+    };
+  }
+
+  if (
+    rawPlan === "pro_max_monthly" ||
+    rawPlan.includes("pro_max") ||
+    rawPlan.includes("max")
+  ) {
+    return {
+      plan: "pro_max_monthly",
+      limit: 8,
       periodStart: userWithSub.currentPeriodStart ?? null,
     };
   }

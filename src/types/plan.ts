@@ -1,4 +1,5 @@
 export type Plan =
+  | "free"
   | "pro_monthly"
   | "pro_annual"
   | "pro_max_monthly"
@@ -6,6 +7,7 @@ export type Plan =
   | null;
 
 export const PLANS = {
+  FREE: "free",
   PRO_MONTHLY: "pro_monthly",
   PRO_ANNUAL: "pro_annual",
   PRO_MAX_MONTHLY: "pro_max_monthly",
