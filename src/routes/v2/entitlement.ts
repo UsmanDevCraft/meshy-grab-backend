@@ -51,6 +51,11 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
         paddleCustomerId: null,
         paddleSubscriptionId: null,
         paidAt: null,
+        accountType: "primary",
+        ownerUserId: null,
+        accountSlots: 0,
+        linkedAccountsCount: 0,
+        linkedAccountsRemaining: 0,
       },
     };
   }
@@ -63,7 +68,7 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
     body: {
       exists: true,
       userId: user.id,
-      email: user.email,
+      email: user.identityEmail ?? user.email,
       isPaid: user.isPaid ?? false,
       plan: isPro ? (user.plan ?? user.subPlan ?? "pro_monthly") : "free",
       freeDownloadsUsed: user.freeDownloadsUsed,
@@ -84,6 +89,11 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
       paddleSubscriptionId:
         user.paddleSubscriptionId ?? user.subPaddleSubscriptionId ?? null,
       paidAt: user.paidAt ? user.paidAt.toISOString() : null,
+      accountType: user.accountType ?? "primary",
+      ownerUserId: user.ownerUserId ?? user.id,
+      accountSlots: user.accountSlots ?? 0,
+      linkedAccountsCount: user.linkedAccountsCount ?? 0,
+      linkedAccountsRemaining: user.linkedAccountsRemaining ?? 0,
     },
   };
 }

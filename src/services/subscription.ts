@@ -24,6 +24,7 @@ export function resolvePlanFromPriceOrCustomData(
   if (
     customDataPlan === "pro_monthly" ||
     customDataPlan === "pro_annual" ||
+    customDataPlan === "pro_max_monthly" ||
     customDataPlan === "lifetime"
   ) {
     return customDataPlan;
@@ -35,6 +36,12 @@ export function resolvePlanFromPriceOrCustomData(
     }
     if (paddlePriceId === env.PADDLE_PRICE_ID_ANNUALLY) {
       return "pro_annual";
+    }
+    if (
+      paddlePriceId === env.PADDLE_PRICE_PRO_MAX_MONTHLY ||
+      paddlePriceId === (env as any).PADDLE_PRICE_ID_PRO_MAX_MONTHLY
+    ) {
+      return "pro_max_monthly";
     }
     if (paddlePriceId === env.PADDLE_PRICE_ID_LIFETIME) {
       return "lifetime";

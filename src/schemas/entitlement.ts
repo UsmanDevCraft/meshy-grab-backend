@@ -35,6 +35,11 @@ export const entitlementResponseSchema = {
       paddleCustomerId: { type: ["string", "null"] },
       paddleSubscriptionId: { type: ["string", "null"] },
       paidAt: { type: ["string", "null"] },
+      accountType: { type: "string" },
+      ownerUserId: { type: ["string", "null"] },
+      accountSlots: { type: "number" },
+      linkedAccountsCount: { type: "number" },
+      linkedAccountsRemaining: { type: "number" },
     },
   },
   400: {

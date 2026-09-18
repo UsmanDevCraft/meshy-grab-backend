@@ -1,7 +1,8 @@
 import { FastifyInstance } from "fastify";
+import { eq } from "drizzle-orm";
 
 import { db } from "../../db/client.js";
-import { installations, users } from "../../db/schema.js";
+import { installations, linkedAccounts, users } from "../../db/schema.js";
 import {
   installBodySchema,
   installResponseSchema,
@@ -72,6 +73,7 @@ export async function installRoutes(app: FastifyInstance) {
         .onConflictDoUpdate({
           target: installations.installationId,
           set: {
+            userId: user.id,
             lastSeenAt: now,
             updatedAt: now,
           },
