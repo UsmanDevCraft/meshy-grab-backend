@@ -20,14 +20,19 @@ export function normalizeDownloadType(type?: string | null): string {
 
 export async function consumeDownload(
   userId: string,
-  taskId: string,
+  taskId?: string | null,
   previewUrl?: string | null,
   modelUrl?: string | null,
   downloadType?: string | null,
   sourceRaw?: string | null,
 ) {
   const source = normalizeSource(sourceRaw);
-  const modelKey = taskId;
+  const modelKey = (
+    taskId ||
+    modelUrl ||
+    previewUrl ||
+    "community-model"
+  ).slice(0, 128);
   const normalizedType = normalizeDownloadType(downloadType);
 
   if (source === "community") {

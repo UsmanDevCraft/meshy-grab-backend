@@ -37,12 +37,19 @@ export async function downloadRoutes(app: FastifyInstance) {
         source,
       } = request.body as {
         installationId: string;
-        taskId: string;
+        taskId?: string | null;
         previewUrl?: string | null;
         modelUrl?: string | null;
         downloadType?: string | null;
         source?: string | null;
       };
+
+      if ((!source || source === "workspace") && (!taskId || !taskId.trim())) {
+        return reply.code(400).send({
+          error: "Error",
+          message: "body must have required property 'taskId'",
+        });
+      }
 
       const user = await getUserByInstallationId(installationId);
 

@@ -3,7 +3,7 @@ import { ALLOWED_DOWNLOAD_TYPES } from "../config/constants.js";
 export const consumeDownloadBodySchema = {
   type: "object",
 
-  required: ["installationId", "taskId"],
+  required: ["installationId"],
 
   additionalProperties: false,
 
@@ -16,6 +16,7 @@ export const consumeDownloadBodySchema = {
 
     taskId: {
       type: "string",
+      nullable: true,
       minLength: 1,
       maxLength: 128,
     },
@@ -60,6 +61,13 @@ export const consumeDownloadResponseSchema = {
       communityModelsUsed: { type: ["number", "null"] },
       communityModelsRemaining: { type: ["number", "null"] },
       communityModelsLimit: { type: ["number", "null"] },
+    },
+  },
+  400: {
+    type: "object",
+    properties: {
+      error: { type: "string" },
+      message: { type: "string" },
     },
   },
   403: {

@@ -420,4 +420,104 @@ describe("v2 Community Download System & Plan Rules Tests", () => {
     assert.equal(v1Res.json().source, "workspace");
     assert.equal(v1Res.json().freeDownloadsUsed, 2);
   });
+
+  test("14. Workspace request without taskId is rejected with 400", async () => {
+    // Workspace request missing taskId (explicit source = workspace)
+    const res1 = await appV2.inject({
+      method: "POST",
+      url: "/downloads/consume",
+      payload: {
+        installationId: testInstallationId,
+        source: "workspace",
+        downloadType: "glb",
+      },
+    });
+    assert.equal(res1.statusCode, 400);
+
+    // Workspace request missing taskId (omitted source defaults to workspace)
+    const res2 = await appV2.inject({
+      method: "POST",
+      url: "/downloads/consume",
+      payload: {
+        installationId: testInstallationId,
+        downloadType: "glb",
+      },
+    });
+    assert.equal(res2.statusCode, 400);
+  });
+
+  test("15. Workspace request with valid taskId functions normally", async () => {
+    await db.delete(downloads).where(eq(downloads.userId, testUser.id));
+    await db.delete(models).where(eq(models.userId, testUser.id));
+    await db
+      .update(users)
+      .set({ freeDownloadsUsed: 0 })
+      .where(eq(users.id, testUser.id));
+
+    const wsRes = await appV2.inject({
+      method: "POST",
+      url: "/downloads/consume",
+      payload: {
+        installationId: testInstallationId,
+        taskId: `ws_valid_task_${Date.now()}`,
+        downloadType: "glb",
+        source: "workspace",
+      },
+    });
+    assert.equal(wsRes.statusCode, 200);
+    assert.equal(wsRes.json().allowed, true);
+    assert.equal(wsRes.json().source, "workspace");
+  });
+
+  test("16. Community request without taskId passes validation and consumes correctly", async () => {
+    await db.delete(downloads).where(eq(downloads.userId, testUser.id));
+    await db.delete(models).where(eq(models.userId, testUser.id));
+
+    const commRes = await appV2.inject({
+      method: "POST",
+      url: "/downloads/consume",
+      payload: {
+        installationId: testInstallationId,
+        source: "community",
+        modelUrl: `https://assets.meshy.ai/community/model_${Date.now()}.glb`,
+        downloadType: "glb",
+      },
+    });
+    assert.equal(commRes.statusCode, 200);
+    const body = commRes.json();
+    assert.equal(body.allowed, true);
+    assert.equal(body.source, "community");
+  });
+
+  test("17. Community request with Community post/ref identity records correctly with source = 'community'", async () => {
+    await db.delete(downloads).where(eq(downloads.userId, testUser.id));
+    await db.delete(models).where(eq(models.userId, testUser.id));
+
+    const communityModelUrl = `https://assets.meshy.ai/community/post_ref_${Date.now()}.glb`;
+    const communityPreviewUrl = `https://assets.meshy.ai/community/preview_${Date.now()}.png`;
+
+    const commRes = await appV2.inject({
+      method: "POST",
+      url: "/downloads/consume",
+      payload: {
+        installationId: testInstallationId,
+        source: "community",
+        modelUrl: communityModelUrl,
+        previewUrl: communityPreviewUrl,
+        downloadType: "glb",
+      },
+    });
+    assert.equal(commRes.statusCode, 200);
+    const body = commRes.json();
+    assert.equal(body.allowed, true);
+    assert.equal(body.source, "community");
+
+    // Verify download record created in DB has source = 'community'
+    const [dlRecord] = await db
+      .select({ source: downloads.source })
+      .from(downloads)
+      .where(eq(downloads.userId, testUser.id))
+      .limit(1);
+    assert.equal(dlRecord.source, "community");
+  });
 });
