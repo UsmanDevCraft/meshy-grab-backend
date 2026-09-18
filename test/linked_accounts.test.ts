@@ -199,6 +199,22 @@ describe("Attached Accounts Backend Foundation", () => {
       assert.equal(body.error, "EMAIL_ALREADY_LINKED");
     });
 
+    test("Linking email already linked to ANOTHER owner → rejected (409)", async () => {
+      // Try linking attached1Email (owned by primaryProMaxUser) to primaryLifetimeUser
+      const res = await app.inject({
+        method: "POST",
+        url: "/v2/accounts/link",
+        payload: {
+          installationId: primaryLifetimeInst,
+          meshyEmail: attached1Email,
+        },
+      });
+
+      assert.equal(res.statusCode, 409);
+      const body = res.json();
+      assert.equal(body.error, "EMAIL_LINKED_TO_OTHER_OWNER");
+    });
+
     test("Linking owner's own primary email → rejected (400)", async () => {
       const res = await app.inject({
         method: "POST",
@@ -214,33 +230,35 @@ describe("Attached Accounts Backend Foundation", () => {
       assert.equal(body.error, "CANNOT_LINK_PRIMARY_EMAIL");
     });
 
-    test("Linking email already owned by another primary MeshyGrab user → rejected (409)", async () => {
-      const res = await app.inject({
+    test("Link second email on Pro Max (email existing in users table) → success (slot 2/2)", async () => {
+      // First, create a user row in users table via /v2/install
+      const preExistingEmail = `pre_existing_${ts}@example.com`;
+      const preInst = `inst_pre_${ts}`;
+      createdInstIds.push(preInst);
+
+      const installRes = await app.inject({
+        method: "POST",
+        url: "/v2/install",
+        payload: {
+          installationId: preInst,
+          email: preExistingEmail,
+        },
+      });
+      assert.equal(installRes.statusCode, 201);
+
+      // Now link this pre-existing Meshy email as 2nd slot to Pro Max owner
+      const linkRes = await app.inject({
         method: "POST",
         url: "/v2/accounts/link",
         payload: {
           installationId: primaryProMaxInst,
-          meshyEmail: otherUser.email,
+          meshyEmail: preExistingEmail,
         },
       });
 
-      assert.equal(res.statusCode, 409);
-      const body = res.json();
-      assert.equal(body.error, "EMAIL_BELONGS_TO_OTHER_USER");
-    });
-
-    test("Link second email on Pro Max → success (slot 2/2)", async () => {
-      const res = await app.inject({
-        method: "POST",
-        url: "/v2/accounts/link",
-        payload: {
-          installationId: primaryProMaxInst,
-          meshyEmail: attached2Email,
-        },
-      });
-
-      assert.equal(res.statusCode, 201);
-      const body = res.json();
+      assert.equal(linkRes.statusCode, 201);
+      const body = linkRes.json();
+      assert.equal(body.accountSlots, 2);
       assert.equal(body.linkedAccountsCount, 2);
       assert.equal(body.linkedAccountsRemaining, 0);
     });

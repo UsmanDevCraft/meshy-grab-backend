@@ -128,20 +128,6 @@ export async function linkAccount(params: {
       };
     }
 
-    const existingAccounts = await tx
-      .select({ id: linkedAccounts.id })
-      .from(linkedAccounts)
-      .where(eq(linkedAccounts.ownerUserId, ownerUserId));
-
-    if (existingAccounts.length >= accountSlots) {
-      return {
-        success: false,
-        statusCode: 403,
-        error: "SLOT_LIMIT_REACHED",
-        message: "All account slots for your plan are already in use.",
-      };
-    }
-
     // 8. Reject if target email equals owner's primary email
     if (owner.email && owner.email.trim().toLowerCase() === normalizedEmail) {
       return {
@@ -182,19 +168,17 @@ export async function linkAccount(params: {
       }
     }
 
-    // Reject if email is the primary email of another MeshyGrab user
-    const [primaryUser] = await tx
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, normalizedEmail))
-      .limit(1);
+    const existingAccounts = await tx
+      .select({ id: linkedAccounts.id })
+      .from(linkedAccounts)
+      .where(eq(linkedAccounts.ownerUserId, ownerUserId));
 
-    if (primaryUser && primaryUser.id !== ownerUserId) {
+    if (existingAccounts.length >= accountSlots) {
       return {
         success: false,
-        statusCode: 409,
-        error: "EMAIL_BELONGS_TO_OTHER_USER",
-        message: "This email belongs to another primary MeshyGrab user.",
+        statusCode: 403,
+        error: "SLOT_LIMIT_REACHED",
+        message: "All account slots for your plan are already in use.",
       };
     }
 
