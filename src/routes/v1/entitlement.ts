@@ -2,18 +2,18 @@ import { FastifyInstance } from "fastify";
 import {
   FREE_DOWNLOAD_LIMIT,
   FREE_TEXTURE_DOWNLOAD_LIMIT,
-} from "../config/constants.js";
+} from "../../config/constants.js";
 
 import {
   getFreeDownloadsRemaining,
   getFreeTextureDownloadsRemaining,
   getUserAndSubscription,
   isProSubscription,
-} from "../services/entitlement.js";
+} from "../../services/entitlement.js";
 import {
   entitlementQuerySchema,
   entitlementResponseSchema,
-} from "../schemas/entitlement.js";
+} from "../../schemas/entitlement.js";
 
 interface EntitlementQuery {
   installationId?: string;

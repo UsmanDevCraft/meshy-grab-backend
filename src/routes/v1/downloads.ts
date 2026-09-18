@@ -1,14 +1,14 @@
 import { FastifyInstance } from "fastify";
 
-import { getUserByInstallationId } from "../services/entitlement.js";
+import { getUserByInstallationId } from "../../services/entitlement.js";
 
-import { consumeDownload } from "../services/downloads.js";
+import { consumeDownload } from "../../services/downloads.js";
 
-import { ERROR_CODES } from "../config/errors.js";
+import { ERROR_CODES } from "../../config/errors.js";
 import {
   consumeDownloadBodySchema,
   consumeDownloadResponseSchema,
-} from "../schemas/downloads.js";
+} from "../../schemas/downloads.js";
 
 export async function downloadRoutes(app: FastifyInstance) {
   app.post(

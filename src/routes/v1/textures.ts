@@ -1,13 +1,13 @@
 import { FastifyInstance } from "fastify";
 
-import { getUserByInstallationId } from "../services/entitlement.js";
-import { consumeTexture } from "../services/textures.js";
+import { getUserByInstallationId } from "../../services/entitlement.js";
+import { consumeTexture } from "../../services/textures.js";
 
-import { ERROR_CODES } from "../config/errors.js";
+import { ERROR_CODES } from "../../config/errors.js";
 import {
   consumeTextureBodySchema,
   consumeTextureResponseSchema,
-} from "../schemas/textures.js";
+} from "../../schemas/textures.js";
 
 async function handleTextureConsumption(
   installationId: string,
