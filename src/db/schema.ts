@@ -253,6 +253,12 @@ export const downloads = pgTable(
       .notNull()
       .default("glb"),
 
+    source: varchar("source", {
+      length: 32,
+    })
+      .notNull()
+      .default("workspace"),
+
     createdAt: timestamp("created_at", {
       withTimezone: true,
     })

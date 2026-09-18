@@ -28,14 +28,21 @@ export async function downloadRoutes(app: FastifyInstance) {
     },
 
     async (request, reply) => {
-      const { installationId, taskId, previewUrl, modelUrl, downloadType } =
-        request.body as {
-          installationId: string;
-          taskId: string;
-          previewUrl?: string | null;
-          modelUrl?: string | null;
-          downloadType?: string | null;
-        };
+      const {
+        installationId,
+        taskId,
+        previewUrl,
+        modelUrl,
+        downloadType,
+        source,
+      } = request.body as {
+        installationId: string;
+        taskId: string;
+        previewUrl?: string | null;
+        modelUrl?: string | null;
+        downloadType?: string | null;
+        source?: string | null;
+      };
 
       const user = await getUserByInstallationId(installationId);
 
@@ -52,6 +59,7 @@ export async function downloadRoutes(app: FastifyInstance) {
         previewUrl,
         modelUrl,
         downloadType,
+        source,
       );
 
       if (!result.allowed) {
@@ -67,6 +75,7 @@ export async function downloadRoutes(app: FastifyInstance) {
           installationId,
           taskId,
           downloadType: downloadType ?? null,
+          source: result.source ?? "workspace",
           duplicate: result.duplicate,
           plan: result.plan,
         },

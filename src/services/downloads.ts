@@ -9,6 +9,7 @@ import {
 } from "../config/constants.js";
 
 import { ERROR_CODES } from "../config/errors.js";
+import { getCommunityModelsUsed, normalizeSource } from "./community.js";
 
 export function normalizeDownloadType(type?: string | null): string {
   if (!type || !type.trim()) {
@@ -23,10 +24,138 @@ export async function consumeDownload(
   previewUrl?: string | null,
   modelUrl?: string | null,
   downloadType?: string | null,
+  sourceRaw?: string | null,
 ) {
+  const source = normalizeSource(sourceRaw);
   const modelKey = taskId;
   const normalizedType = normalizeDownloadType(downloadType);
 
+  if (source === "community") {
+    return await db.transaction(async (tx) => {
+      // 1. Single round-trip query for user & sub, locking user row for update to ensure concurrency protection
+      const [userWithSub] = await tx
+        .select({
+          id: users.id,
+          isPaid: users.isPaid,
+          plan: users.plan,
+          subStatus: subscriptions.status,
+        })
+        .from(users)
+        .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!userWithSub) {
+        throw new Error("USER_NOT_FOUND");
+      }
+
+      const isPro =
+        userWithSub.isPaid === true ||
+        userWithSub.subStatus === SUBSCRIPTION_STATUSES.ACTIVE ||
+        userWithSub.subStatus === SUBSCRIPTION_STATUSES.TRIALING;
+
+      const userPlan = isPro ? (userWithSub.plan ?? "pro_monthly") : "free";
+
+      // 2. Ensure canonical model record exists (one row per model per user)
+      const [modelRecord] = await tx
+        .insert(models)
+        .values({
+          userId,
+          modelKey,
+          previewUrl: previewUrl ?? null,
+          modelUrl: modelUrl ?? null,
+        })
+        .onConflictDoUpdate({
+          target: [models.userId, models.modelKey],
+          set: {
+            updatedAt: new Date(),
+          },
+        })
+        .returning({ id: models.id });
+
+      const modelId = modelRecord.id;
+
+      // 3. Check if user already unlocked this Community model
+      const [existingCommunityDownload] = await tx
+        .select({ id: downloads.id })
+        .from(downloads)
+        .where(
+          and(
+            eq(downloads.modelId, modelId),
+            eq(downloads.source, "community"),
+          ),
+        )
+        .limit(1);
+
+      const modelAlreadyUnlocked = !!existingCommunityDownload;
+
+      // 4. Check if exact format download record already exists
+      const [existingFormatDownload] = await tx
+        .select({ id: downloads.id })
+        .from(downloads)
+        .where(
+          and(
+            eq(downloads.modelId, modelId),
+            eq(downloads.downloadType, normalizedType),
+          ),
+        )
+        .limit(1);
+
+      if (modelAlreadyUnlocked) {
+        // Additional format for already unlocked Community model consumes 0 new Community quota
+        if (!existingFormatDownload) {
+          await tx
+            .insert(downloads)
+            .values({
+              userId,
+              modelId,
+              downloadType: normalizedType,
+              source: "community",
+            })
+            .onConflictDoNothing();
+        }
+
+        const communityModelsUsed = await getCommunityModelsUsed(userId, tx);
+
+        return {
+          allowed: true,
+          duplicate: !!existingFormatDownload,
+          plan: userPlan,
+          source: "community",
+          freeDownloadsUsed: null,
+          freeDownloadsRemaining: null,
+          communityModelsUsed,
+          communityModelsRemaining: null,
+        };
+      }
+
+      // FIRST format download for a NEW Community model
+      await tx
+        .insert(downloads)
+        .values({
+          userId,
+          modelId,
+          downloadType: normalizedType,
+          source: "community",
+        })
+        .onConflictDoNothing();
+
+      const communityModelsUsed = await getCommunityModelsUsed(userId, tx);
+
+      return {
+        allowed: true,
+        duplicate: false,
+        plan: userPlan,
+        source: "community",
+        freeDownloadsUsed: null,
+        freeDownloadsRemaining: null,
+        communityModelsUsed,
+        communityModelsRemaining: null,
+      };
+    });
+  }
+
+  // Workspace download logic (source = "workspace")
   return await db.transaction(async (tx) => {
     // 1. Single round-trip field-projected query for user & subscription entitlement status
     const [userWithSub] = await tx
@@ -88,6 +217,7 @@ export async function consumeDownload(
         allowed: true,
         duplicate: true,
         plan: isPro ? "pro" : "free",
+        source: "workspace",
         freeDownloadsUsed: isPro ? null : userWithSub.freeDownloadsUsed,
         freeDownloadsRemaining: isPro
           ? null
@@ -103,6 +233,7 @@ export async function consumeDownload(
           userId,
           modelId,
           downloadType: normalizedType,
+          source: "workspace",
         })
         .onConflictDoNothing();
 
@@ -110,6 +241,7 @@ export async function consumeDownload(
         allowed: true,
         duplicate: false,
         plan: "pro",
+        source: "workspace",
         freeDownloadsUsed: null,
         freeDownloadsRemaining: null,
       };
@@ -121,6 +253,7 @@ export async function consumeDownload(
         allowed: false,
         duplicate: false,
         plan: "free",
+        source: "workspace",
         error: ERROR_CODES.FREE_DOWNLOAD_LIMIT_REACHED,
         freeDownloadsRemaining: 0,
       };
@@ -133,6 +266,7 @@ export async function consumeDownload(
         userId,
         modelId,
         downloadType: normalizedType,
+        source: "workspace",
       })
       .onConflictDoNothing()
       .returning({ id: downloads.id });
@@ -152,6 +286,7 @@ export async function consumeDownload(
         allowed: true,
         duplicate: true,
         plan: "free",
+        source: "workspace",
         freeDownloadsUsed: currentUsed,
         freeDownloadsRemaining: Math.max(0, FREE_DOWNLOAD_LIMIT - currentUsed),
       };
@@ -183,6 +318,7 @@ export async function consumeDownload(
         allowed: false,
         duplicate: false,
         plan: "free",
+        source: "workspace",
         error: ERROR_CODES.FREE_DOWNLOAD_LIMIT_REACHED,
         freeDownloadsRemaining: 0,
       };
@@ -192,6 +328,7 @@ export async function consumeDownload(
       allowed: true,
       duplicate: false,
       plan: "free",
+      source: "workspace",
       freeDownloadsUsed: updatedUser.freeDownloadsUsed,
       freeDownloadsRemaining:
         FREE_DOWNLOAD_LIMIT - updatedUser.freeDownloadsUsed,
