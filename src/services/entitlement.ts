@@ -184,22 +184,22 @@ export async function getUserAndSubscription(query: {
 
   let initialUser: UserAndSubQueryResult | null = null;
 
-  if (userId) {
-    const [result] = await db
-      .select(selectFields)
-      .from(users)
-      .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    initialUser = (result as UserAndSubQueryResult) ?? null;
-  } else if (installationId) {
+  if (installationId) {
     const [result] = await db
       .select(selectFields)
       .from(installations)
       .innerJoin(users, eq(installations.userId, users.id))
       .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
       .where(eq(installations.installationId, installationId))
+      .limit(1);
+
+    initialUser = (result as UserAndSubQueryResult) ?? null;
+  } else if (userId) {
+    const [result] = await db
+      .select(selectFields)
+      .from(users)
+      .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
+      .where(eq(users.id, userId))
       .limit(1);
 
     initialUser = (result as UserAndSubQueryResult) ?? null;
@@ -262,6 +262,7 @@ export async function getUserAndSubscription(query: {
 
   return {
     ...effectiveUser,
+    id: initialUser.id,
     accountType,
     ownerUserId,
     identityEmail,

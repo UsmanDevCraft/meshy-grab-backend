@@ -31,7 +31,17 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
     };
   }
 
-  const user = await getUserAndSubscription({ userId, installationId });
+  const user = await getUserAndSubscription({ installationId, userId });
+
+  if (installationId && userId && user) {
+    if (user.id !== userId && user.ownerUserId !== userId) {
+      return {
+        statusCode: 403,
+        error: "UNAUTHORIZED",
+        message: "installationId does not match provided userId.",
+      };
+    }
+  }
 
   if (!user) {
     return {

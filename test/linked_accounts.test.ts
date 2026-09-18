@@ -349,6 +349,7 @@ describe("Attached Accounts Backend Foundation", () => {
       const body = res.json();
       assert.equal(body.exists, true);
       assert.equal(body.accountType, "primary");
+      assert.equal(body.userId, primaryProMaxUser.id);
       assert.equal(body.ownerUserId, primaryProMaxUser.id);
       assert.equal(body.isPaid, true);
       assert.equal(body.plan, "pro_max_monthly");
@@ -357,7 +358,7 @@ describe("Attached Accounts Backend Foundation", () => {
       assert.equal(body.linkedAccountsRemaining, 0);
     });
 
-    test("Attached account inherits primary owner's entitlement", async () => {
+    test("Attached account inherits primary owner's entitlement but retains own userId", async () => {
       // Create a fresh Pro Max owner user
       const ts = Date.now();
       const freshOwnerEmail = `fresh_owner_${ts}@example.com`;
@@ -403,6 +404,9 @@ describe("Attached Accounts Backend Foundation", () => {
         },
       });
       assert.equal(installRes.statusCode, 201);
+      const installBody = installRes.json();
+      const attachedUserId = installBody.userId;
+      createdUserIds.push(attachedUserId);
 
       // Query entitlement for attached installation
       const res = await app.inject({
@@ -414,10 +418,82 @@ describe("Attached Accounts Backend Foundation", () => {
       const body = res.json();
       assert.equal(body.exists, true);
       assert.equal(body.accountType, "attached");
+      assert.equal(body.userId, attachedUserId);
+      assert.notEqual(body.userId, freshOwner.id);
       assert.equal(body.ownerUserId, freshOwner.id);
       assert.equal(body.email, attachedEmail);
       assert.equal(body.isPaid, true);
       assert.equal(body.plan, "pro_max_monthly");
+      assert.equal(body.communityModelsLimit, 8);
+      assert.equal(body.accountSlots, 2);
+      assert.equal(body.linkedAccountsCount, 1);
+      assert.equal(body.linkedAccountsRemaining, 1);
+    });
+
+    test("Reinstall / new installationId can recover existing Meshy user's account identity & entitlement", async () => {
+      const ts = Date.now();
+      const freshOwnerEmail = `reinstall_owner_${ts}@example.com`;
+      const [freshOwner] = await db
+        .insert(users)
+        .values({
+          email: freshOwnerEmail,
+          isPaid: true,
+          plan: "pro_max_monthly",
+        })
+        .returning();
+      createdUserIds.push(freshOwner.id);
+
+      const freshInst = `inst_reinstall_owner_${ts}`;
+      await db.insert(installations).values({
+        installationId: freshInst,
+        userId: freshOwner.id,
+      });
+      createdInstIds.push(freshInst);
+
+      const userEmail = `reinstall_user_${ts}@example.com`;
+      const oldInst = `inst_old_${ts}`;
+      const newInst = `inst_new_${ts}`;
+      createdInstIds.push(oldInst, newInst);
+
+      // Initial install
+      const res1 = await app.inject({
+        method: "POST",
+        url: "/v2/install",
+        payload: { installationId: oldInst, email: userEmail },
+      });
+      assert.equal(res1.statusCode, 201);
+      const originalUserId = res1.json().userId;
+      createdUserIds.push(originalUserId);
+
+      // Link to owner
+      const linkRes = await app.inject({
+        method: "POST",
+        url: "/v2/accounts/link",
+        payload: { installationId: freshInst, meshyEmail: userEmail },
+      });
+      assert.equal(linkRes.statusCode, 201);
+
+      // User clears extension storage and reinstalls (new installationId)
+      const res2 = await app.inject({
+        method: "POST",
+        url: "/v2/install",
+        payload: { installationId: newInst, email: userEmail },
+      });
+      assert.equal(res2.statusCode, 201);
+      assert.equal(res2.json().userId, originalUserId);
+
+      // Query entitlement using new installationId
+      const entRes = await app.inject({
+        method: "GET",
+        url: `/v2/entitlement?installationId=${newInst}`,
+      });
+      assert.equal(entRes.statusCode, 200);
+      const entBody = entRes.json();
+      assert.equal(entBody.userId, originalUserId);
+      assert.equal(entBody.ownerUserId, freshOwner.id);
+      assert.equal(entBody.accountType, "attached");
+      assert.equal(entBody.isPaid, true);
+      assert.equal(entBody.plan, "pro_max_monthly");
     });
   });
 
@@ -485,6 +561,17 @@ describe("Attached Accounts Backend Foundation", () => {
       assert.ok(
         body.error === "UNAUTHORIZED" || body.error === "PLAN_HAS_NO_SLOTS",
       );
+    });
+
+    test("Arbitrary client-supplied userId in /v2/entitlement cannot alter resolved owner", async () => {
+      const res = await app.inject({
+        method: "GET",
+        url: `/v2/entitlement?installationId=${primaryFreeInst}&userId=${primaryProMaxUser.id}`,
+      });
+
+      assert.equal(res.statusCode, 403);
+      const body = res.json();
+      assert.equal(body.error, "UNAUTHORIZED");
     });
   });
 
