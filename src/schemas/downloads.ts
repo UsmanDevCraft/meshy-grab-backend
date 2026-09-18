@@ -59,6 +59,7 @@ export const consumeDownloadResponseSchema = {
       freeDownloadsRemaining: { type: ["number", "null"] },
       communityModelsUsed: { type: ["number", "null"] },
       communityModelsRemaining: { type: ["number", "null"] },
+      communityModelsLimit: { type: ["number", "null"] },
     },
   },
   403: {
@@ -67,7 +68,9 @@ export const consumeDownloadResponseSchema = {
       error: { type: "string" },
       message: { type: "string" },
       freeDownloadsRemaining: { type: ["number", "null"] },
+      communityModelsUsed: { type: ["number", "null"] },
       communityModelsRemaining: { type: ["number", "null"] },
+      communityModelsLimit: { type: ["number", "null"] },
     },
   },
   404: {

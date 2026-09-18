@@ -10,6 +10,7 @@ import {
   getUserAndSubscription,
   isProSubscription,
 } from "../../services/entitlement.js";
+import { getCommunityEntitlement } from "../../services/community.js";
 import {
   entitlementQuerySchema,
   entitlementResponseSchema,
@@ -43,6 +44,9 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
         freeDownloadsRemaining: FREE_DOWNLOAD_LIMIT,
         textureDownloadsUsed: 0,
         textureDownloadsRemaining: FREE_TEXTURE_DOWNLOAD_LIMIT,
+        communityModelsUsed: 0,
+        communityModelsRemaining: 1,
+        communityModelsLimit: 1,
         subscriptionStatus: "inactive",
         paddleCustomerId: null,
         paddleSubscriptionId: null,
@@ -52,6 +56,7 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
   }
 
   const isPro = user.isPaid || isProSubscription(user.subStatus, user.isPaid);
+  const communityEntitlement = await getCommunityEntitlement(user);
 
   return {
     statusCode: 200,
@@ -60,7 +65,7 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
       userId: user.id,
       email: user.email,
       isPaid: user.isPaid ?? false,
-      plan: isPro ? (user.plan ?? "pro_monthly") : "free",
+      plan: isPro ? (user.plan ?? user.subPlan ?? "pro_monthly") : "free",
       freeDownloadsUsed: user.freeDownloadsUsed,
       freeDownloadsRemaining: isPro
         ? null
@@ -69,6 +74,9 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
       textureDownloadsRemaining: isPro
         ? null
         : getFreeTextureDownloadsRemaining(user.textureDownloadsUsed ?? 0),
+      communityModelsUsed: communityEntitlement.communityModelsUsed,
+      communityModelsRemaining: communityEntitlement.communityModelsRemaining,
+      communityModelsLimit: communityEntitlement.communityModelsLimit,
       subscriptionStatus:
         user.subStatus ?? (user.isPaid ? "active" : "inactive"),
       paddleCustomerId:

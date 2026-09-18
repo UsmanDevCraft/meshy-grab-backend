@@ -63,6 +63,19 @@ export async function downloadRoutes(app: FastifyInstance) {
       );
 
       if (!result.allowed) {
+        if (
+          result.source === "community" ||
+          result.error === "COMMUNITY_DOWNLOAD_LIMIT_REACHED"
+        ) {
+          return reply.code(403).send({
+            error: "COMMUNITY_DOWNLOAD_LIMIT_REACHED",
+            message: "Community download limit reached.",
+            communityModelsRemaining: 0,
+            communityModelsLimit: (result as any).communityModelsLimit ?? null,
+            communityModelsUsed: (result as any).communityModelsUsed ?? null,
+          });
+        }
+
         return reply.code(403).send({
           error: ERROR_CODES.FREE_DOWNLOAD_LIMIT_REACHED,
           message: "Free download limit reached.",

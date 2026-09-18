@@ -9,7 +9,7 @@ import {
 } from "../config/constants.js";
 
 import { ERROR_CODES } from "../config/errors.js";
-import { getCommunityModelsUsed, normalizeSource } from "./community.js";
+import { getCommunityEntitlement, normalizeSource } from "./community.js";
 
 export function normalizeDownloadType(type?: string | null): string {
   if (!type || !type.trim()) {
@@ -32,13 +32,16 @@ export async function consumeDownload(
 
   if (source === "community") {
     return await db.transaction(async (tx) => {
-      // 1. Single round-trip query for user & sub, locking user row for update to ensure concurrency protection
+      // 1. Fetch user & subscription entitlement status
       const [userWithSub] = await tx
         .select({
           id: users.id,
           isPaid: users.isPaid,
           plan: users.plan,
+          subPlan: subscriptions.plan,
           subStatus: subscriptions.status,
+          currentPeriodStart: subscriptions.currentPeriodStart,
+          currentPeriodEnd: subscriptions.currentPeriodEnd,
         })
         .from(users)
         .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
@@ -49,12 +52,8 @@ export async function consumeDownload(
         throw new Error("USER_NOT_FOUND");
       }
 
-      const isPro =
-        userWithSub.isPaid === true ||
-        userWithSub.subStatus === SUBSCRIPTION_STATUSES.ACTIVE ||
-        userWithSub.subStatus === SUBSCRIPTION_STATUSES.TRIALING;
-
-      const userPlan = isPro ? (userWithSub.plan ?? "pro_monthly") : "free";
+      // Compute current Community entitlement status based on plan rules
+      const entitlement = await getCommunityEntitlement(userWithSub, tx);
 
       // 2. Ensure canonical model record exists (one row per model per user)
       const [modelRecord] = await tx
@@ -102,7 +101,7 @@ export async function consumeDownload(
         .limit(1);
 
       if (modelAlreadyUnlocked) {
-        // Additional format for already unlocked Community model consumes 0 new Community quota
+        // Additional format or re-download of an already unlocked Community model consumes 0 new entitlement
         if (!existingFormatDownload) {
           await tx
             .insert(downloads)
@@ -115,21 +114,39 @@ export async function consumeDownload(
             .onConflictDoNothing();
         }
 
-        const communityModelsUsed = await getCommunityModelsUsed(userId, tx);
-
         return {
           allowed: true,
           duplicate: !!existingFormatDownload,
-          plan: userPlan,
+          plan: entitlement.plan,
           source: "community",
           freeDownloadsUsed: null,
           freeDownloadsRemaining: null,
-          communityModelsUsed,
-          communityModelsRemaining: null,
+          communityModelsUsed: entitlement.communityModelsUsed,
+          communityModelsRemaining: entitlement.communityModelsRemaining,
+          communityModelsLimit: entitlement.communityModelsLimit,
         };
       }
 
       // FIRST format download for a NEW Community model
+      // Check quota limit
+      if (
+        entitlement.communityModelsLimit !== null &&
+        entitlement.communityModelsUsed >= entitlement.communityModelsLimit
+      ) {
+        return {
+          allowed: false,
+          duplicate: false,
+          plan: entitlement.plan,
+          source: "community",
+          error: "COMMUNITY_DOWNLOAD_LIMIT_REACHED",
+          freeDownloadsRemaining: null,
+          communityModelsUsed: entitlement.communityModelsUsed,
+          communityModelsRemaining: 0,
+          communityModelsLimit: entitlement.communityModelsLimit,
+        };
+      }
+
+      // Quota is available: insert format download record with source = "community"
       await tx
         .insert(downloads)
         .values({
@@ -140,17 +157,22 @@ export async function consumeDownload(
         })
         .onConflictDoNothing();
 
-      const communityModelsUsed = await getCommunityModelsUsed(userId, tx);
+      const updatedUsed = entitlement.communityModelsUsed + 1;
+      const updatedRemaining =
+        entitlement.communityModelsLimit === null
+          ? null
+          : Math.max(0, entitlement.communityModelsLimit - updatedUsed);
 
       return {
         allowed: true,
         duplicate: false,
-        plan: userPlan,
+        plan: entitlement.plan,
         source: "community",
         freeDownloadsUsed: null,
         freeDownloadsRemaining: null,
-        communityModelsUsed,
-        communityModelsRemaining: null,
+        communityModelsUsed: updatedUsed,
+        communityModelsRemaining: updatedRemaining,
+        communityModelsLimit: entitlement.communityModelsLimit,
       };
     });
   }

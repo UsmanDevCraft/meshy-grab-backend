@@ -91,6 +91,8 @@ export async function getUserAndSubscription(query: {
     subStatus: subscriptions.status,
     subPaddleCustomerId: subscriptions.paddleCustomerId,
     subPaddleSubscriptionId: subscriptions.paddleSubscriptionId,
+    currentPeriodStart: subscriptions.currentPeriodStart,
+    currentPeriodEnd: subscriptions.currentPeriodEnd,
   };
 
   if (userId) {
