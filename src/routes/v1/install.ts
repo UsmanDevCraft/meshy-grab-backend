@@ -1,11 +1,11 @@
 import { FastifyInstance } from "fastify";
 
-import { db } from "../db/client.js";
-import { installations, users } from "../db/schema.js";
+import { db } from "../../db/client.js";
+import { installations, users } from "../../db/schema.js";
 import {
   installBodySchema,
   installResponseSchema,
-} from "../schemas/install.js";
+} from "../../schemas/install.js";
 
 export async function installRoutes(app: FastifyInstance) {
   app.post<{

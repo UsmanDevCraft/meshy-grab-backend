@@ -2,18 +2,19 @@ import { FastifyInstance } from "fastify";
 import {
   FREE_DOWNLOAD_LIMIT,
   FREE_TEXTURE_DOWNLOAD_LIMIT,
-} from "../config/constants.js";
+} from "../../config/constants.js";
 
 import {
   getFreeDownloadsRemaining,
   getFreeTextureDownloadsRemaining,
   getUserAndSubscription,
   isProSubscription,
-} from "../services/entitlement.js";
+} from "../../services/entitlement.js";
+import { getCommunityEntitlement } from "../../services/community.js";
 import {
   entitlementQuerySchema,
   entitlementResponseSchema,
-} from "../schemas/entitlement.js";
+} from "../../schemas/entitlement.js";
 
 interface EntitlementQuery {
   installationId?: string;
@@ -30,7 +31,17 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
     };
   }
 
-  const user = await getUserAndSubscription({ userId, installationId });
+  const user = await getUserAndSubscription({ installationId, userId });
+
+  if (installationId && userId && user) {
+    if (user.id !== userId && user.ownerUserId !== userId) {
+      return {
+        statusCode: 403,
+        error: "UNAUTHORIZED",
+        message: "installationId does not match provided userId.",
+      };
+    }
+  }
 
   if (!user) {
     return {
@@ -43,24 +54,33 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
         freeDownloadsRemaining: FREE_DOWNLOAD_LIMIT,
         textureDownloadsUsed: 0,
         textureDownloadsRemaining: FREE_TEXTURE_DOWNLOAD_LIMIT,
+        communityModelsUsed: 0,
+        communityModelsRemaining: 1,
+        communityModelsLimit: 1,
         subscriptionStatus: "inactive",
         paddleCustomerId: null,
         paddleSubscriptionId: null,
         paidAt: null,
+        accountType: "primary",
+        ownerUserId: null,
+        accountSlots: 0,
+        linkedAccountsCount: 0,
+        linkedAccountsRemaining: 0,
       },
     };
   }
 
   const isPro = user.isPaid || isProSubscription(user.subStatus, user.isPaid);
+  const communityEntitlement = await getCommunityEntitlement(user);
 
   return {
     statusCode: 200,
     body: {
       exists: true,
       userId: user.id,
-      email: user.email,
+      email: user.identityEmail ?? user.email,
       isPaid: user.isPaid ?? false,
-      plan: isPro ? (user.plan ?? "pro_monthly") : "free",
+      plan: isPro ? (user.plan ?? user.subPlan ?? "pro_monthly") : "free",
       freeDownloadsUsed: user.freeDownloadsUsed,
       freeDownloadsRemaining: isPro
         ? null
@@ -69,6 +89,9 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
       textureDownloadsRemaining: isPro
         ? null
         : getFreeTextureDownloadsRemaining(user.textureDownloadsUsed ?? 0),
+      communityModelsUsed: communityEntitlement.communityModelsUsed,
+      communityModelsRemaining: communityEntitlement.communityModelsRemaining,
+      communityModelsLimit: communityEntitlement.communityModelsLimit,
       subscriptionStatus:
         user.subStatus ?? (user.isPaid ? "active" : "inactive"),
       paddleCustomerId:
@@ -76,6 +99,11 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
       paddleSubscriptionId:
         user.paddleSubscriptionId ?? user.subPaddleSubscriptionId ?? null,
       paidAt: user.paidAt ? user.paidAt.toISOString() : null,
+      accountType: user.accountType ?? "primary",
+      ownerUserId: user.ownerUserId ?? user.id,
+      accountSlots: user.accountSlots ?? 0,
+      linkedAccountsCount: user.linkedAccountsCount ?? 0,
+      linkedAccountsRemaining: user.linkedAccountsRemaining ?? 0,
     },
   };
 }

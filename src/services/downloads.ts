@@ -9,6 +9,8 @@ import {
 } from "../config/constants.js";
 
 import { ERROR_CODES } from "../config/errors.js";
+import { getCommunityEntitlement, normalizeSource } from "./community.js";
+import { getUserAndSubscription } from "./entitlement.js";
 
 export function normalizeDownloadType(type?: string | null): string {
   if (!type || !type.trim()) {
@@ -19,43 +21,182 @@ export function normalizeDownloadType(type?: string | null): string {
 
 export async function consumeDownload(
   userId: string,
-  taskId: string,
+  taskId?: string | null,
   previewUrl?: string | null,
   modelUrl?: string | null,
   downloadType?: string | null,
+  sourceRaw?: string | null,
+  modelKeyRaw?: string | null,
 ) {
-  const modelKey = taskId;
+  const source = normalizeSource(sourceRaw);
+  const modelKey = (
+    modelKeyRaw?.trim() ||
+    taskId?.trim() ||
+    modelUrl?.trim() ||
+    previewUrl?.trim() ||
+    "community-model"
+  ).slice(0, 128);
   const normalizedType = normalizeDownloadType(downloadType);
 
+  if (source === "community") {
+    return await db.transaction(async (tx) => {
+      // 1. Fetch user & subscription entitlement status
+      const userWithSub = await getUserAndSubscription({ userId }, tx);
+
+      if (!userWithSub) {
+        throw new Error("USER_NOT_FOUND");
+      }
+
+      const actualUserId = userWithSub.id;
+
+      // Compute current Community entitlement status based on plan rules
+      const entitlement = await getCommunityEntitlement(userWithSub, tx);
+
+      // 2. Ensure canonical model record exists (one row per model per user)
+      const [modelRecord] = await tx
+        .insert(models)
+        .values({
+          userId: actualUserId,
+          modelKey,
+          previewUrl: previewUrl ?? null,
+          modelUrl: modelUrl ?? null,
+        })
+        .onConflictDoUpdate({
+          target: [models.userId, models.modelKey],
+          set: {
+            updatedAt: new Date(),
+          },
+        })
+        .returning({ id: models.id });
+
+      const modelId = modelRecord.id;
+
+      // 3. Check if user already unlocked this Community model
+      const [existingCommunityDownload] = await tx
+        .select({ id: downloads.id })
+        .from(downloads)
+        .where(
+          and(
+            eq(downloads.modelId, modelId),
+            eq(downloads.source, "community"),
+          ),
+        )
+        .limit(1);
+
+      const modelAlreadyUnlocked = !!existingCommunityDownload;
+
+      // 4. Check if exact format download record already exists
+      const [existingFormatDownload] = await tx
+        .select({ id: downloads.id })
+        .from(downloads)
+        .where(
+          and(
+            eq(downloads.modelId, modelId),
+            eq(downloads.downloadType, normalizedType),
+          ),
+        )
+        .limit(1);
+
+      if (modelAlreadyUnlocked) {
+        // Additional format or re-download of an already unlocked Community model consumes 0 new entitlement
+        if (!existingFormatDownload) {
+          await tx
+            .insert(downloads)
+            .values({
+              userId: actualUserId,
+              modelId,
+              downloadType: normalizedType,
+              source: "community",
+            })
+            .onConflictDoNothing();
+        }
+
+        return {
+          allowed: true,
+          duplicate: !!existingFormatDownload,
+          plan: entitlement.plan,
+          source: "community",
+          freeDownloadsUsed: null,
+          freeDownloadsRemaining: null,
+          communityModelsUsed: entitlement.communityModelsUsed,
+          communityModelsRemaining: entitlement.communityModelsRemaining,
+          communityModelsLimit: entitlement.communityModelsLimit,
+        };
+      }
+
+      // FIRST format download for a NEW Community model
+      // Check quota limit
+      if (
+        entitlement.communityModelsLimit !== null &&
+        entitlement.communityModelsUsed >= entitlement.communityModelsLimit
+      ) {
+        return {
+          allowed: false,
+          duplicate: false,
+          plan: entitlement.plan,
+          source: "community",
+          error: "COMMUNITY_DOWNLOAD_LIMIT_REACHED",
+          freeDownloadsRemaining: null,
+          communityModelsUsed: entitlement.communityModelsUsed,
+          communityModelsRemaining: 0,
+          communityModelsLimit: entitlement.communityModelsLimit,
+        };
+      }
+
+      // Quota is available: insert format download record with source = "community"
+      await tx
+        .insert(downloads)
+        .values({
+          userId: actualUserId,
+          modelId,
+          downloadType: normalizedType,
+          source: "community",
+        })
+        .onConflictDoNothing();
+
+      const updatedUsed = entitlement.communityModelsUsed + 1;
+      const updatedRemaining =
+        entitlement.communityModelsLimit === null
+          ? null
+          : Math.max(0, entitlement.communityModelsLimit - updatedUsed);
+
+      return {
+        allowed: true,
+        duplicate: false,
+        plan: entitlement.plan,
+        source: "community",
+        freeDownloadsUsed: null,
+        freeDownloadsRemaining: null,
+        communityModelsUsed: updatedUsed,
+        communityModelsRemaining: updatedRemaining,
+        communityModelsLimit: entitlement.communityModelsLimit,
+      };
+    });
+  }
+
+  // Workspace download logic (source = "workspace")
   return await db.transaction(async (tx) => {
     // 1. Single round-trip field-projected query for user & subscription entitlement status
-    const [userWithSub] = await tx
-      .select({
-        id: users.id,
-        isPaid: users.isPaid,
-        plan: users.plan,
-        freeDownloadsUsed: users.freeDownloadsUsed,
-        subStatus: subscriptions.status,
-      })
-      .from(users)
-      .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
-      .where(eq(users.id, userId))
-      .limit(1);
+    const userWithSub = await getUserAndSubscription({ userId }, tx);
 
     if (!userWithSub) {
       throw new Error("USER_NOT_FOUND");
     }
 
+    const actualUserId = userWithSub.id;
+
     const isPro =
       userWithSub.isPaid === true ||
       userWithSub.subStatus === SUBSCRIPTION_STATUSES.ACTIVE ||
-      userWithSub.subStatus === SUBSCRIPTION_STATUSES.TRIALING;
+      userWithSub.subStatus === SUBSCRIPTION_STATUSES.TRIALING ||
+      userWithSub.subStatus === "active" ||
+      userWithSub.subStatus === "trialing";
 
     // 2. Ensure canonical model record exists (one row per model per user)
     const [modelRecord] = await tx
       .insert(models)
       .values({
-        userId,
+        userId: actualUserId,
         modelKey,
         previewUrl: previewUrl ?? null,
         modelUrl: modelUrl ?? null,
@@ -88,6 +229,7 @@ export async function consumeDownload(
         allowed: true,
         duplicate: true,
         plan: isPro ? "pro" : "free",
+        source: "workspace",
         freeDownloadsUsed: isPro ? null : userWithSub.freeDownloadsUsed,
         freeDownloadsRemaining: isPro
           ? null
@@ -100,9 +242,10 @@ export async function consumeDownload(
       await tx
         .insert(downloads)
         .values({
-          userId,
+          userId: actualUserId,
           modelId,
           downloadType: normalizedType,
+          source: "workspace",
         })
         .onConflictDoNothing();
 
@@ -110,6 +253,7 @@ export async function consumeDownload(
         allowed: true,
         duplicate: false,
         plan: "pro",
+        source: "workspace",
         freeDownloadsUsed: null,
         freeDownloadsRemaining: null,
       };
@@ -121,6 +265,7 @@ export async function consumeDownload(
         allowed: false,
         duplicate: false,
         plan: "free",
+        source: "workspace",
         error: ERROR_CODES.FREE_DOWNLOAD_LIMIT_REACHED,
         freeDownloadsRemaining: 0,
       };
@@ -130,9 +275,10 @@ export async function consumeDownload(
     const [insertedDownload] = await tx
       .insert(downloads)
       .values({
-        userId,
+        userId: actualUserId,
         modelId,
         downloadType: normalizedType,
+        source: "workspace",
       })
       .onConflictDoNothing()
       .returning({ id: downloads.id });
@@ -142,7 +288,7 @@ export async function consumeDownload(
       const [currentUser] = await tx
         .select({ freeDownloadsUsed: users.freeDownloadsUsed })
         .from(users)
-        .where(eq(users.id, userId))
+        .where(eq(users.id, actualUserId))
         .limit(1);
 
       const currentUsed =
@@ -152,6 +298,7 @@ export async function consumeDownload(
         allowed: true,
         duplicate: true,
         plan: "free",
+        source: "workspace",
         freeDownloadsUsed: currentUsed,
         freeDownloadsRemaining: Math.max(0, FREE_DOWNLOAD_LIMIT - currentUsed),
       };
@@ -167,7 +314,7 @@ export async function consumeDownload(
       })
       .where(
         and(
-          eq(users.id, userId),
+          eq(users.id, actualUserId),
           lt(users.freeDownloadsUsed, FREE_DOWNLOAD_LIMIT),
         ),
       )
@@ -183,6 +330,7 @@ export async function consumeDownload(
         allowed: false,
         duplicate: false,
         plan: "free",
+        source: "workspace",
         error: ERROR_CODES.FREE_DOWNLOAD_LIMIT_REACHED,
         freeDownloadsRemaining: 0,
       };
@@ -192,6 +340,7 @@ export async function consumeDownload(
       allowed: true,
       duplicate: false,
       plan: "free",
+      source: "workspace",
       freeDownloadsUsed: updatedUser.freeDownloadsUsed,
       freeDownloadsRemaining:
         FREE_DOWNLOAD_LIMIT - updatedUser.freeDownloadsUsed,

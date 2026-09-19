@@ -253,6 +253,12 @@ export const downloads = pgTable(
       .notNull()
       .default("glb"),
 
+    source: varchar("source", {
+      length: 32,
+    })
+      .notNull()
+      .default("workspace"),
+
     createdAt: timestamp("created_at", {
       withTimezone: true,
     })
@@ -265,5 +271,51 @@ export const downloads = pgTable(
     ).on(table.modelId, table.downloadType),
     userIdIdx: index("downloads_user_id_idx").on(table.userId),
     modelIdIdx: index("downloads_model_id_idx").on(table.modelId),
+  }),
+);
+
+export const linkedAccounts = pgTable(
+  "linked_accounts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+      }),
+
+    meshyEmail: varchar("meshy_email", {
+      length: 255,
+    })
+      .notNull()
+      .unique(),
+
+    meshyUserId: varchar("meshy_user_id", {
+      length: 255,
+    }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    ownerUserIdIdx: index("linked_accounts_owner_user_id_idx").on(
+      table.ownerUserId,
+    ),
+    meshyEmailIdx: index("linked_accounts_meshy_email_idx").on(
+      table.meshyEmail,
+    ),
+    ownerMeshyEmailUnique: unique(
+      "linked_accounts_owner_user_id_meshy_email_unique",
+    ).on(table.ownerUserId, table.meshyEmail),
   }),
 );

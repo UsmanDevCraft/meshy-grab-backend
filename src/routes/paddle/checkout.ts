@@ -44,13 +44,16 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    let plan: "pro_monthly" | "pro_annual" | "lifetime";
+    let plan: "pro_monthly" | "pro_annual" | "pro_max_monthly" | "lifetime";
     let priceId: string;
 
     if (rawPlan) {
       if (rawPlan === "pro_monthly") {
         plan = "pro_monthly";
         priceId = env.PADDLE_PRICE_ID_MONTHLY;
+      } else if (rawPlan === "pro_max_monthly") {
+        plan = "pro_max_monthly";
+        priceId = env.PADDLE_PRICE_PRO_MAX_MONTHLY;
       } else if (rawPlan === "pro_annual") {
         plan = "pro_annual";
         priceId = env.PADDLE_PRICE_ID_ANNUALLY;
@@ -66,6 +69,9 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
       if (rawPriceId === env.PADDLE_PRICE_ID_MONTHLY) {
         plan = "pro_monthly";
         priceId = env.PADDLE_PRICE_ID_MONTHLY;
+      } else if (rawPriceId === env.PADDLE_PRICE_PRO_MAX_MONTHLY) {
+        plan = "pro_max_monthly";
+        priceId = env.PADDLE_PRICE_PRO_MAX_MONTHLY;
       } else if (rawPriceId === env.PADDLE_PRICE_ID_ANNUALLY) {
         plan = "pro_annual";
         priceId = env.PADDLE_PRICE_ID_ANNUALLY;
