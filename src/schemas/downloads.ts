@@ -45,6 +45,13 @@ export const consumeDownloadBodySchema = {
       maxLength: 32,
       enum: ["workspace", "community"],
     },
+
+    modelKey: {
+      type: "string",
+      nullable: true,
+      minLength: 1,
+      maxLength: 128,
+    },
   },
 } as const;
 

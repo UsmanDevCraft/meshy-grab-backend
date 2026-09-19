@@ -549,4 +549,202 @@ describe("v2 Community Download System & Plan Rules Tests", () => {
       .limit(1);
     assert.equal(dlRecord.source, "community");
   });
+
+  test("18. Pro Monthly consuming Community models via explicit modelKey increments counters correctly and limits at 2", async () => {
+    await db.delete(downloads).where(eq(downloads.userId, testUser.id));
+    await db.delete(models).where(eq(models.userId, testUser.id));
+
+    const subId = `sub_monthly_key_${Date.now()}`;
+    const periodStart = new Date("2026-09-01T00:00:00Z");
+    const periodEnd = new Date("2026-10-01T00:00:00Z");
+
+    await upsertPaddleSubscription({
+      userId: testUser.id,
+      plan: "pro_monthly",
+      paddleCustomerId: "cust_m_key",
+      paddleSubscriptionId: subId,
+      paddlePriceId: "pri_m_key",
+      status: "active",
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
+    });
+
+    const keyA = `comm_key_A_${Date.now()}`;
+    const keyB = `comm_key_B_${Date.now()}`;
+    const keyC = `comm_key_C_${Date.now()}`;
+
+    // 1st Community download via modelKey
+    const resA = await appV2.inject({
+      method: "POST",
+      url: "/downloads/consume",
+      payload: {
+        installationId: testInstallationId,
+        modelKey: keyA,
+        downloadType: "glb",
+        source: "community",
+      },
+    });
+    assert.equal(resA.statusCode, 200);
+    const bodyA = resA.json();
+    assert.equal(bodyA.allowed, true);
+    assert.equal(bodyA.duplicate, false);
+    assert.equal(bodyA.source, "community");
+    assert.equal(bodyA.communityModelsUsed, 1);
+    assert.equal(bodyA.communityModelsRemaining, 1);
+    assert.equal(bodyA.communityModelsLimit, 2);
+
+    // 2nd Community download via modelKey
+    const resB = await appV2.inject({
+      method: "POST",
+      url: "/downloads/consume",
+      payload: {
+        installationId: testInstallationId,
+        modelKey: keyB,
+        downloadType: "glb",
+        source: "community",
+      },
+    });
+    assert.equal(resB.statusCode, 200);
+    const bodyB = resB.json();
+    assert.equal(bodyB.allowed, true);
+    assert.equal(bodyB.duplicate, false);
+    assert.equal(bodyB.source, "community");
+    assert.equal(bodyB.communityModelsUsed, 2);
+    assert.equal(bodyB.communityModelsRemaining, 0);
+    assert.equal(bodyB.communityModelsLimit, 2);
+
+    // 3rd Community download via modelKey -> 403 COMMUNITY_DOWNLOAD_LIMIT_REACHED
+    const resC = await appV2.inject({
+      method: "POST",
+      url: "/downloads/consume",
+      payload: {
+        installationId: testInstallationId,
+        modelKey: keyC,
+        downloadType: "glb",
+        source: "community",
+      },
+    });
+    assert.equal(resC.statusCode, 403);
+    const bodyC = resC.json();
+    assert.equal(bodyC.error, "COMMUNITY_DOWNLOAD_LIMIT_REACHED");
+    assert.equal(bodyC.communityModelsRemaining, 0);
+    assert.equal(bodyC.communityModelsLimit, 2);
+  });
+
+  test("19. Duplicate Community model using modelKey does not double-consume quota", async () => {
+    // Redownload keyA (already consumed in test 18)
+    const keyA = (
+      await db
+        .select({ modelKey: models.modelKey })
+        .from(models)
+        .where(eq(models.userId, testUser.id))
+        .limit(1)
+    )[0].modelKey;
+
+    const dupRes = await appV2.inject({
+      method: "POST",
+      url: "/downloads/consume",
+      payload: {
+        installationId: testInstallationId,
+        modelKey: keyA,
+        downloadType: "glb",
+        source: "community",
+      },
+    });
+    assert.equal(dupRes.statusCode, 200);
+    const dupBody = dupRes.json();
+    assert.equal(dupBody.allowed, true);
+    assert.equal(dupBody.duplicate, true);
+    assert.equal(dupBody.source, "community");
+    assert.equal(dupBody.communityModelsUsed, 2);
+    assert.equal(dupBody.communityModelsRemaining, 0);
+  });
+
+  test("20. Pro Max Monthly consuming Community models via modelKey decrements counter from 8", async () => {
+    await db.delete(downloads).where(eq(downloads.userId, testUser.id));
+    await db.delete(models).where(eq(models.userId, testUser.id));
+
+    const subIdMax = `sub_max_key_${Date.now()}`;
+    const periodStart = new Date("2026-09-01T00:00:00Z");
+    const periodEnd = new Date("2026-10-01T00:00:00Z");
+
+    await upsertPaddleSubscription({
+      userId: testUser.id,
+      plan: "pro_max_monthly",
+      paddleCustomerId: "cust_max_key",
+      paddleSubscriptionId: subIdMax,
+      paddlePriceId: "pri_max_key",
+      status: "active",
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
+    });
+
+    // Download 1st model
+    const res1 = await appV2.inject({
+      method: "POST",
+      url: "/downloads/consume",
+      payload: {
+        installationId: testInstallationId,
+        modelKey: `max_k_1_${Date.now()}`,
+        downloadType: "glb",
+        source: "community",
+      },
+    });
+    assert.equal(res1.statusCode, 200);
+    assert.equal(res1.json().communityModelsUsed, 1);
+    assert.equal(res1.json().communityModelsRemaining, 7);
+    assert.equal(res1.json().communityModelsLimit, 8);
+
+    // Download 2nd model
+    const res2 = await appV2.inject({
+      method: "POST",
+      url: "/downloads/consume",
+      payload: {
+        installationId: testInstallationId,
+        modelKey: `max_k_2_${Date.now()}`,
+        downloadType: "obj",
+        source: "community",
+      },
+    });
+    assert.equal(res2.statusCode, 200);
+    assert.equal(res2.json().communityModelsUsed, 2);
+    assert.equal(res2.json().communityModelsRemaining, 6);
+  });
+
+  test("21. Workspace model downloads for paid plans remain unlimited and do NOT decrement Community counters", async () => {
+    // Entitlement before workspace downloads
+    const entBefore = await appV2.inject({
+      method: "GET",
+      url: `/entitlement?installationId=${testInstallationId}`,
+    });
+    const commUsedBefore = entBefore.json().communityModelsUsed;
+    const commRemBefore = entBefore.json().communityModelsRemaining;
+
+    // Download multiple Workspace models across formats (glb, obj, fbx, stl, 3mf)
+    const formats = ["glb", "obj", "fbx", "stl", "3mf"];
+    for (const fmt of formats) {
+      const wsRes = await appV2.inject({
+        method: "POST",
+        url: "/downloads/consume",
+        payload: {
+          installationId: testInstallationId,
+          taskId: `ws_paid_task_${fmt}_${Date.now()}`,
+          downloadType: fmt,
+          source: "workspace",
+        },
+      });
+      assert.equal(wsRes.statusCode, 200);
+      assert.equal(wsRes.json().allowed, true);
+      assert.equal(wsRes.json().source, "workspace");
+      assert.equal(wsRes.json().plan, "pro");
+    }
+
+    // Community counters must remain completely unchanged
+    const entAfter = await appV2.inject({
+      method: "GET",
+      url: `/entitlement?installationId=${testInstallationId}`,
+    });
+    assert.equal(entAfter.json().communityModelsUsed, commUsedBefore);
+    assert.equal(entAfter.json().communityModelsRemaining, commRemBefore);
+  });
 });

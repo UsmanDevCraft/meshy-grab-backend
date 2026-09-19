@@ -35,6 +35,7 @@ export async function downloadRoutes(app: FastifyInstance) {
         modelUrl,
         downloadType,
         source,
+        modelKey,
       } = request.body as {
         installationId: string;
         taskId?: string | null;
@@ -42,6 +43,7 @@ export async function downloadRoutes(app: FastifyInstance) {
         modelUrl?: string | null;
         downloadType?: string | null;
         source?: string | null;
+        modelKey?: string | null;
       };
 
       if ((!source || source === "workspace") && (!taskId || !taskId.trim())) {
@@ -67,6 +69,7 @@ export async function downloadRoutes(app: FastifyInstance) {
         modelUrl,
         downloadType,
         source,
+        modelKey,
       );
 
       if (!result.allowed) {
