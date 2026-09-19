@@ -9,20 +9,11 @@ import {
 } from "../config/constants.js";
 
 import { ERROR_CODES } from "../config/errors.js";
+import { getUserAndSubscription } from "./entitlement.js";
 
 export async function consumeTexture(userId: string) {
   // 1. Fetch user & subscription entitlement status
-  const [userWithSub] = await db
-    .select({
-      id: users.id,
-      isPaid: users.isPaid,
-      textureDownloadsUsed: users.textureDownloadsUsed,
-      subStatus: subscriptions.status,
-    })
-    .from(users)
-    .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
-    .where(eq(users.id, userId))
-    .limit(1);
+  const userWithSub = await getUserAndSubscription({ userId });
 
   if (!userWithSub) {
     throw new Error("USER_NOT_FOUND");
@@ -31,7 +22,9 @@ export async function consumeTexture(userId: string) {
   const isPro =
     userWithSub.isPaid === true ||
     userWithSub.subStatus === SUBSCRIPTION_STATUSES.ACTIVE ||
-    userWithSub.subStatus === SUBSCRIPTION_STATUSES.TRIALING;
+    userWithSub.subStatus === SUBSCRIPTION_STATUSES.TRIALING ||
+    userWithSub.subStatus === "active" ||
+    userWithSub.subStatus === "trialing";
 
   // PRO plan: unlimited textures, counter is NOT decremented
   if (isPro) {

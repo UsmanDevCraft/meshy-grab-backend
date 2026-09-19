@@ -58,7 +58,12 @@ export async function getUserById(userId: string) {
         .where(eq(users.id, linked.ownerUserId))
         .limit(1);
 
-      if (owner) return owner;
+      if (owner) {
+        return {
+          ...owner,
+          id: user.id,
+        };
+      }
     }
   }
 
@@ -110,7 +115,12 @@ export async function getUserByInstallationId(installationId: string) {
         .where(eq(users.id, linked.ownerUserId))
         .limit(1);
 
-      if (owner) return owner;
+      if (owner) {
+        return {
+          ...owner,
+          id: result.id,
+        };
+      }
     }
   }
 
@@ -158,10 +168,14 @@ export interface UserAndSubQueryResult {
  * Single round-trip field-projected query for user and subscription details.
  * Resolves attached Meshy accounts to their primary owner user & subscription.
  */
-export async function getUserAndSubscription(query: {
-  userId?: string;
-  installationId?: string;
-}) {
+export async function getUserAndSubscription(
+  query: {
+    userId?: string;
+    installationId?: string;
+  },
+  tx?: any,
+) {
+  const runner = tx ?? db;
   const { userId, installationId } = query;
 
   const selectFields = {
@@ -185,7 +199,7 @@ export async function getUserAndSubscription(query: {
   let initialUser: UserAndSubQueryResult | null = null;
 
   if (installationId) {
-    const [result] = await db
+    const [result] = await runner
       .select(selectFields)
       .from(installations)
       .innerJoin(users, eq(installations.userId, users.id))
@@ -195,7 +209,7 @@ export async function getUserAndSubscription(query: {
 
     initialUser = (result as UserAndSubQueryResult) ?? null;
   } else if (userId) {
-    const [result] = await db
+    const [result] = await runner
       .select(selectFields)
       .from(users)
       .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
@@ -215,7 +229,7 @@ export async function getUserAndSubscription(query: {
 
   if (initialUser.email) {
     const normalizedEmail = initialUser.email.trim().toLowerCase();
-    const [linked] = await db
+    const [linked] = await runner
       .select({
         ownerUserId: linkedAccounts.ownerUserId,
         meshyEmail: linkedAccounts.meshyEmail,
@@ -225,7 +239,7 @@ export async function getUserAndSubscription(query: {
       .limit(1);
 
     if (linked) {
-      const [owner] = await db
+      const [owner] = await runner
         .select(selectFields)
         .from(users)
         .leftJoin(subscriptions, eq(subscriptions.userId, users.id))

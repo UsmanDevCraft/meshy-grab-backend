@@ -10,6 +10,7 @@ import {
   models,
   downloads,
   subscriptions,
+  linkedAccounts,
 } from "../src/db/schema.js";
 import { downloadRoutes as downloadRoutesV2 } from "../src/routes/v2/downloads.js";
 import { downloadRoutes as downloadRoutesV1 } from "../src/routes/v1/downloads.js";
@@ -746,5 +747,290 @@ describe("v2 Community Download System & Plan Rules Tests", () => {
     });
     assert.equal(entAfter.json().communityModelsUsed, commUsedBefore);
     assert.equal(entAfter.json().communityModelsRemaining, commRemBefore);
+  });
+
+  describe("Attached Accounts Per-Account Community Quota Tests", () => {
+    let ownerUser: { id: string; email: string };
+    let ownerInst: string;
+
+    let attachedUser: { id: string; email: string };
+    let attachedInst: string;
+
+    before(async () => {
+      const ts = Date.now();
+
+      // 1. Create Owner User on Pro Max Monthly plan
+      const ownerEmail = `owner_comm_${ts}@example.com`;
+      const [insertedOwner] = await db
+        .insert(users)
+        .values({
+          email: ownerEmail,
+          isPaid: true,
+          plan: "pro_max_monthly",
+        })
+        .returning();
+      ownerUser = { id: insertedOwner.id, email: insertedOwner.email! };
+      ownerInst = `inst_owner_comm_${ts}`;
+      await db.insert(installations).values({
+        installationId: ownerInst,
+        userId: ownerUser.id,
+      });
+
+      // 2. Set up owner subscription with period
+      await upsertPaddleSubscription({
+        userId: ownerUser.id,
+        plan: "pro_max_monthly",
+        paddleCustomerId: `cust_owner_${ts}`,
+        paddleSubscriptionId: `sub_owner_${ts}`,
+        status: "active",
+        currentPeriodStart: new Date("2026-09-01T00:00:00Z"),
+        currentPeriodEnd: new Date("2026-10-01T00:00:00Z"),
+      });
+
+      // 3. Create Attached User and Installation
+      const attachedEmail = `attached_comm_${ts}@example.com`;
+      const [insertedAttached] = await db
+        .insert(users)
+        .values({
+          email: attachedEmail,
+          isPaid: false, // attached account derives paid status from owner
+        })
+        .returning();
+      attachedUser = {
+        id: insertedAttached.id,
+        email: insertedAttached.email!,
+      };
+      attachedInst = `inst_attached_comm_${ts}`;
+      await db.insert(installations).values({
+        installationId: attachedInst,
+        userId: attachedUser.id,
+      });
+
+      // 4. Link attached user email to owner
+      await db.insert(linkedAccounts).values({
+        ownerUserId: ownerUser.id,
+        meshyEmail: attachedEmail,
+      });
+    });
+
+    after(async () => {
+      if (attachedUser?.id) {
+        await db.delete(downloads).where(eq(downloads.userId, attachedUser.id));
+        await db.delete(models).where(eq(models.userId, attachedUser.id));
+        await db
+          .delete(installations)
+          .where(eq(installations.userId, attachedUser.id));
+        await db.delete(users).where(eq(users.id, attachedUser.id));
+      }
+      if (ownerUser?.id) {
+        await db
+          .delete(linkedAccounts)
+          .where(eq(linkedAccounts.ownerUserId, ownerUser.id));
+        await db.delete(downloads).where(eq(downloads.userId, ownerUser.id));
+        await db.delete(models).where(eq(models.userId, ownerUser.id));
+        await db
+          .delete(subscriptions)
+          .where(eq(subscriptions.userId, ownerUser.id));
+        await db
+          .delete(installations)
+          .where(eq(installations.userId, ownerUser.id));
+        await db.delete(users).where(eq(users.id, ownerUser.id));
+      }
+    });
+
+    test("22. Attached account starts with 0/8 Community usage even if owner has 3/8 used", async () => {
+      // Simulate owner consuming 3 Community models
+      for (let i = 1; i <= 3; i++) {
+        await appV2.inject({
+          method: "POST",
+          url: "/downloads/consume",
+          payload: {
+            installationId: ownerInst,
+            modelKey: `comm_owner_pre_${i}`,
+            downloadType: "glb",
+            source: "community",
+          },
+        });
+      }
+
+      // Check owner entitlement -> 3 used, 5 remaining
+      const ownerEnt = await appV2.inject({
+        method: "GET",
+        url: `/entitlement?installationId=${ownerInst}`,
+      });
+      assert.equal(ownerEnt.json().communityModelsUsed, 3);
+      assert.equal(ownerEnt.json().communityModelsRemaining, 5);
+
+      // Check attached account entitlement -> 0 used, 8 remaining
+      const attEnt = await appV2.inject({
+        method: "GET",
+        url: `/entitlement?installationId=${attachedInst}`,
+      });
+      assert.equal(attEnt.json().accountType, "attached");
+      assert.equal(attEnt.json().communityModelsUsed, 0);
+      assert.equal(attEnt.json().communityModelsRemaining, 8);
+      assert.equal(attEnt.json().communityModelsLimit, 8);
+    });
+
+    test("23. Downloading Community model A on attached account increments attached counter without affecting owner", async () => {
+      const modelA = `comm_attached_model_A_${Date.now()}`;
+
+      const res = await appV2.inject({
+        method: "POST",
+        url: "/downloads/consume",
+        payload: {
+          installationId: attachedInst,
+          modelKey: modelA,
+          downloadType: "glb",
+          source: "community",
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      assert.equal(body.allowed, true);
+      assert.equal(body.communityModelsUsed, 1);
+      assert.equal(body.communityModelsRemaining, 7);
+      assert.equal(body.communityModelsLimit, 8);
+
+      // Owner counters MUST remain 3 used, 5 remaining
+      const ownerEnt = await appV2.inject({
+        method: "GET",
+        url: `/entitlement?installationId=${ownerInst}`,
+      });
+      assert.equal(ownerEnt.json().communityModelsUsed, 3);
+      assert.equal(ownerEnt.json().communityModelsRemaining, 5);
+    });
+
+    test("24. Downloading Community model B on attached account increments counter to 2/8", async () => {
+      const modelB = `comm_attached_model_B_${Date.now()}`;
+
+      const res = await appV2.inject({
+        method: "POST",
+        url: "/downloads/consume",
+        payload: {
+          installationId: attachedInst,
+          modelKey: modelB,
+          downloadType: "glb",
+          source: "community",
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      assert.equal(body.allowed, true);
+      assert.equal(body.communityModelsUsed, 2);
+      assert.equal(body.communityModelsRemaining, 6);
+
+      // Owner counters MUST remain 3 used, 5 remaining
+      const ownerEnt = await appV2.inject({
+        method: "GET",
+        url: `/entitlement?installationId=${ownerInst}`,
+      });
+      assert.equal(ownerEnt.json().communityModelsUsed, 3);
+      assert.equal(ownerEnt.json().communityModelsRemaining, 5);
+    });
+
+    test("25. Redownloading model B on attached account returns duplicate = true and consumes 0 additional quota", async () => {
+      const modelB = (
+        await db
+          .select({ modelKey: models.modelKey })
+          .from(models)
+          .where(eq(models.userId, attachedUser.id))
+          .limit(1)
+      )[0].modelKey;
+
+      const dupRes = await appV2.inject({
+        method: "POST",
+        url: "/downloads/consume",
+        payload: {
+          installationId: attachedInst,
+          modelKey: modelB,
+          downloadType: "glb",
+          source: "community",
+        },
+      });
+
+      assert.equal(dupRes.statusCode, 200);
+      const body = dupRes.json();
+      assert.equal(body.allowed, true);
+      assert.equal(body.duplicate, true);
+      assert.equal(body.communityModelsUsed, 2);
+      assert.equal(body.communityModelsRemaining, 6);
+    });
+
+    test("26. Owner downloading Community model C increments owner counter to 4/8 without affecting attached account (2/8)", async () => {
+      const modelC = `comm_owner_model_C_${Date.now()}`;
+
+      const ownerRes = await appV2.inject({
+        method: "POST",
+        url: "/downloads/consume",
+        payload: {
+          installationId: ownerInst,
+          modelKey: modelC,
+          downloadType: "glb",
+          source: "community",
+        },
+      });
+
+      assert.equal(ownerRes.statusCode, 200);
+      assert.equal(ownerRes.json().communityModelsUsed, 4);
+      assert.equal(ownerRes.json().communityModelsRemaining, 4);
+
+      // Attached account entitlement MUST remain 2 used, 6 remaining
+      const attEnt = await appV2.inject({
+        method: "GET",
+        url: `/entitlement?installationId=${attachedInst}`,
+      });
+      assert.equal(attEnt.json().communityModelsUsed, 2);
+      assert.equal(attEnt.json().communityModelsRemaining, 6);
+    });
+
+    test("27. Attached account reaching limit (8/8) gets 403 while owner quota remains unaffected", async () => {
+      // Attached currently has 2 used. Consume 6 more unique models (total 8)
+      for (let i = 3; i <= 8; i++) {
+        const res = await appV2.inject({
+          method: "POST",
+          url: "/downloads/consume",
+          payload: {
+            installationId: attachedInst,
+            modelKey: `comm_attached_limit_${i}_${Date.now()}`,
+            downloadType: "glb",
+            source: "community",
+          },
+        });
+        assert.equal(res.statusCode, 200);
+      }
+
+      // Check attached entitlement -> 8 used, 0 remaining
+      const attEnt = await appV2.inject({
+        method: "GET",
+        url: `/entitlement?installationId=${attachedInst}`,
+      });
+      assert.equal(attEnt.json().communityModelsUsed, 8);
+      assert.equal(attEnt.json().communityModelsRemaining, 0);
+
+      // 9th model on attached account must be rejected (403 COMMUNITY_DOWNLOAD_LIMIT_REACHED)
+      const res9 = await appV2.inject({
+        method: "POST",
+        url: "/downloads/consume",
+        payload: {
+          installationId: attachedInst,
+          modelKey: `comm_attached_limit_9_${Date.now()}`,
+          downloadType: "glb",
+          source: "community",
+        },
+      });
+      assert.equal(res9.statusCode, 403);
+      assert.equal(res9.json().error, "COMMUNITY_DOWNLOAD_LIMIT_REACHED");
+
+      // Owner quota MUST remain at 4 used, 4 remaining
+      const ownerEnt = await appV2.inject({
+        method: "GET",
+        url: `/entitlement?installationId=${ownerInst}`,
+      });
+      assert.equal(ownerEnt.json().communityModelsUsed, 4);
+      assert.equal(ownerEnt.json().communityModelsRemaining, 4);
+    });
   });
 });

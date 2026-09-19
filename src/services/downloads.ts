@@ -10,6 +10,7 @@ import {
 
 import { ERROR_CODES } from "../config/errors.js";
 import { getCommunityEntitlement, normalizeSource } from "./community.js";
+import { getUserAndSubscription } from "./entitlement.js";
 
 export function normalizeDownloadType(type?: string | null): string {
   if (!type || !type.trim()) {
@@ -40,24 +41,13 @@ export async function consumeDownload(
   if (source === "community") {
     return await db.transaction(async (tx) => {
       // 1. Fetch user & subscription entitlement status
-      const [userWithSub] = await tx
-        .select({
-          id: users.id,
-          isPaid: users.isPaid,
-          plan: users.plan,
-          subPlan: subscriptions.plan,
-          subStatus: subscriptions.status,
-          currentPeriodStart: subscriptions.currentPeriodStart,
-          currentPeriodEnd: subscriptions.currentPeriodEnd,
-        })
-        .from(users)
-        .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
-        .where(eq(users.id, userId))
-        .limit(1);
+      const userWithSub = await getUserAndSubscription({ userId }, tx);
 
       if (!userWithSub) {
         throw new Error("USER_NOT_FOUND");
       }
+
+      const actualUserId = userWithSub.id;
 
       // Compute current Community entitlement status based on plan rules
       const entitlement = await getCommunityEntitlement(userWithSub, tx);
@@ -66,7 +56,7 @@ export async function consumeDownload(
       const [modelRecord] = await tx
         .insert(models)
         .values({
-          userId,
+          userId: actualUserId,
           modelKey,
           previewUrl: previewUrl ?? null,
           modelUrl: modelUrl ?? null,
@@ -113,7 +103,7 @@ export async function consumeDownload(
           await tx
             .insert(downloads)
             .values({
-              userId,
+              userId: actualUserId,
               modelId,
               downloadType: normalizedType,
               source: "community",
@@ -157,7 +147,7 @@ export async function consumeDownload(
       await tx
         .insert(downloads)
         .values({
-          userId,
+          userId: actualUserId,
           modelId,
           downloadType: normalizedType,
           source: "community",
@@ -187,33 +177,26 @@ export async function consumeDownload(
   // Workspace download logic (source = "workspace")
   return await db.transaction(async (tx) => {
     // 1. Single round-trip field-projected query for user & subscription entitlement status
-    const [userWithSub] = await tx
-      .select({
-        id: users.id,
-        isPaid: users.isPaid,
-        plan: users.plan,
-        freeDownloadsUsed: users.freeDownloadsUsed,
-        subStatus: subscriptions.status,
-      })
-      .from(users)
-      .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
-      .where(eq(users.id, userId))
-      .limit(1);
+    const userWithSub = await getUserAndSubscription({ userId }, tx);
 
     if (!userWithSub) {
       throw new Error("USER_NOT_FOUND");
     }
 
+    const actualUserId = userWithSub.id;
+
     const isPro =
       userWithSub.isPaid === true ||
       userWithSub.subStatus === SUBSCRIPTION_STATUSES.ACTIVE ||
-      userWithSub.subStatus === SUBSCRIPTION_STATUSES.TRIALING;
+      userWithSub.subStatus === SUBSCRIPTION_STATUSES.TRIALING ||
+      userWithSub.subStatus === "active" ||
+      userWithSub.subStatus === "trialing";
 
     // 2. Ensure canonical model record exists (one row per model per user)
     const [modelRecord] = await tx
       .insert(models)
       .values({
-        userId,
+        userId: actualUserId,
         modelKey,
         previewUrl: previewUrl ?? null,
         modelUrl: modelUrl ?? null,
@@ -259,7 +242,7 @@ export async function consumeDownload(
       await tx
         .insert(downloads)
         .values({
-          userId,
+          userId: actualUserId,
           modelId,
           downloadType: normalizedType,
           source: "workspace",
@@ -292,7 +275,7 @@ export async function consumeDownload(
     const [insertedDownload] = await tx
       .insert(downloads)
       .values({
-        userId,
+        userId: actualUserId,
         modelId,
         downloadType: normalizedType,
         source: "workspace",
@@ -305,7 +288,7 @@ export async function consumeDownload(
       const [currentUser] = await tx
         .select({ freeDownloadsUsed: users.freeDownloadsUsed })
         .from(users)
-        .where(eq(users.id, userId))
+        .where(eq(users.id, actualUserId))
         .limit(1);
 
       const currentUsed =
@@ -331,7 +314,7 @@ export async function consumeDownload(
       })
       .where(
         and(
-          eq(users.id, userId),
+          eq(users.id, actualUserId),
           lt(users.freeDownloadsUsed, FREE_DOWNLOAD_LIMIT),
         ),
       )
