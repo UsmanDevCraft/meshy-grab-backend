@@ -1,14 +1,14 @@
 import { FastifyInstance } from "fastify";
 
-import { getUserByInstallationId } from "../services/entitlement.js";
+import { getUserByInstallationId } from "../../services/entitlement.js";
 
-import { consumeDownload } from "../services/downloads.js";
+import { consumeDownload } from "../../services/downloads.js";
 
-import { ERROR_CODES } from "../config/errors.js";
+import { ERROR_CODES } from "../../config/errors.js";
 import {
   consumeDownloadBodySchema,
   consumeDownloadResponseSchema,
-} from "../schemas/downloads.js";
+} from "../../schemas/downloads.js";
 
 export async function downloadRoutes(app: FastifyInstance) {
   app.post(
@@ -28,14 +28,23 @@ export async function downloadRoutes(app: FastifyInstance) {
     },
 
     async (request, reply) => {
-      const { installationId, taskId, previewUrl, modelUrl, downloadType } =
-        request.body as {
-          installationId: string;
-          taskId: string;
-          previewUrl?: string | null;
-          modelUrl?: string | null;
-          downloadType?: string | null;
-        };
+      const {
+        installationId,
+        taskId,
+        previewUrl,
+        modelUrl,
+        downloadType,
+        source,
+        modelKey,
+      } = request.body as {
+        installationId: string;
+        taskId?: string | null;
+        previewUrl?: string | null;
+        modelUrl?: string | null;
+        downloadType?: string | null;
+        source?: string | null;
+        modelKey?: string | null;
+      };
 
       const user = await getUserByInstallationId(installationId);
 
@@ -52,6 +61,8 @@ export async function downloadRoutes(app: FastifyInstance) {
         previewUrl,
         modelUrl,
         downloadType,
+        source,
+        modelKey,
       );
 
       if (!result.allowed) {

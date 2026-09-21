@@ -59,8 +59,8 @@ describe("Texture API Routes - /entitlement and /textures/consume", () => {
     );
 
     const Fastify = (await import("fastify")).default;
-    const { entitlementRoutes } = await import("../src/routes/entitlement.js");
-    const { textureRoutes } = await import("../src/routes/textures.js");
+    const { entitlementRoutes } = await import("../src/routes/v1/entitlement.js");
+    const { textureRoutes } = await import("../src/routes/v1/textures.js");
 
     app = Fastify({ logger: false });
     await app.register(entitlementRoutes);

@@ -110,6 +110,24 @@ describe("Paddle Checkout Route - /api/checkout", () => {
     assert.ok(body.transactionId);
   });
 
+  test("1d. plan: pro_max_monthly + valid user/installation/email → 201", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/checkout",
+      payload: {
+        plan: "pro_max_monthly",
+        userId: testUser.id,
+        email: testUser.email,
+        installationId: testInstallationId,
+      },
+    });
+
+    assert.equal(res.statusCode, 201);
+    const body = res.json();
+    assert.ok(body.url);
+    assert.ok(body.transactionId);
+  });
+
   test("2. invalid plan string → 400", async () => {
     const res = await app.inject({
       method: "POST",

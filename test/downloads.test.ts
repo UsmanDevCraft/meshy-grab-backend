@@ -11,7 +11,7 @@ import {
   downloads,
   subscriptions,
 } from "../src/db/schema.js";
-import { downloadRoutes } from "../src/routes/downloads.js";
+import { downloadRoutes } from "../src/routes/v1/downloads.js";
 import {
   DOWNLOAD_TYPES,
   ALLOWED_DOWNLOAD_TYPES,
