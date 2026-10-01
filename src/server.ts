@@ -9,6 +9,7 @@ import { checkoutRoutes } from "./routes/paddle/checkout.js";
 import { webhookRoutes } from "./routes/paddle/webhook.js";
 import { v1Routes } from "./routes/v1/index.js";
 import { v2Routes } from "./routes/v2/index.js";
+import { v3Routes } from "./routes/v3/index.js";
 
 const port = Number(process.env.PORT) || env.PORT || 3000;
 const host = process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1";
@@ -53,6 +54,7 @@ await app.register(rateLimit, {
 
 await app.register(v1Routes, { prefix: "/v1" });
 await app.register(v2Routes, { prefix: "/v2" });
+await app.register(v3Routes, { prefix: "/v3" });
 
 await app.register(checkoutRoutes);
 await app.register(webhookRoutes);
