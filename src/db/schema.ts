@@ -319,3 +319,51 @@ export const linkedAccounts = pgTable(
     ).on(table.ownerUserId, table.meshyEmail),
   }),
 );
+
+export const tripoDownloads = pgTable(
+  "tripo_downloads",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+      }),
+
+    installationId: varchar("installation_id", {
+      length: 128,
+    }).notNull(),
+
+    tripoModelId: varchar("tripo_model_id", {
+      length: 255,
+    }),
+
+    downloadType: varchar("download_type", {
+      length: 128,
+    })
+      .notNull()
+      .default("glb"),
+
+    entitlementOrigin: varchar("entitlement_origin", {
+      length: 64,
+    }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    userIdIdx: index("tripo_downloads_user_id_idx").on(table.userId),
+    installationIdIdx: index("tripo_downloads_installation_id_idx").on(
+      table.installationId,
+    ),
+    createdAtIdx: index("tripo_downloads_created_at_idx").on(table.createdAt),
+    userIdCreatedAtIdx: index("tripo_downloads_user_id_created_at_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+  }),
+);
