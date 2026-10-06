@@ -1,18 +1,10 @@
 import { FastifyPluginAsync } from "fastify";
-import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { and, eq } from "drizzle-orm";
 
 import { env } from "../../config/env.js";
 import { db } from "../../db/client.js";
 import { installations, users } from "../../db/schema.js";
-
-const paddleEnvironment = env.PADDLE_CLIENT_TOKEN.startsWith("live_")
-  ? Environment.production
-  : Environment.sandbox;
-
-const paddle = new Paddle(env.PADDLE_API_KEY, {
-  environment: paddleEnvironment,
-});
+import { paddle } from "../../lib/paddle.js";
 
 export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/api/checkout", async (request, reply) => {

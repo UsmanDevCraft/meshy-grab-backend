@@ -1,20 +1,13 @@
 import { FastifyPluginAsync } from "fastify";
-import { Environment, EventName, Paddle } from "@paddle/paddle-node-sdk";
+import { EventName } from "@paddle/paddle-node-sdk";
 
 import { env } from "../../config/env.js";
+import { paddle } from "../../lib/paddle.js";
 import {
   revokePaddleSubscription,
   setUserLifetimePlan,
   upsertPaddleSubscription,
 } from "../../services/subscription.js";
-
-const paddleEnvironment = env.PADDLE_CLIENT_TOKEN.startsWith("live_")
-  ? Environment.production
-  : Environment.sandbox;
-
-const paddle = new Paddle(env.PADDLE_API_KEY, {
-  environment: paddleEnvironment,
-});
 
 export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post(
