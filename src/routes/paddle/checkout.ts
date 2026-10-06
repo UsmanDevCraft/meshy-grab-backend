@@ -11,6 +11,7 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
     const body = request.body as {
       plan?: string;
       priceId?: string;
+      isDiscounted?: boolean;
       userId?: string;
       email?: string;
       installationId?: string;
@@ -19,6 +20,7 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
     const {
       plan: rawPlan,
       priceId: rawPriceId,
+      isDiscounted,
       userId,
       email,
       installationId,
@@ -36,28 +38,43 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
+    const discounted = isDiscounted === true;
+
     let plan: "pro_monthly" | "pro_annual" | "pro_max_monthly" | "lifetime";
     let priceId: string;
 
     if (rawPlan) {
       if (rawPlan === "pro_monthly") {
         plan = "pro_monthly";
+
+        // Discounts are NOT supported for Pro Monthly.
         priceId = env.PADDLE_PRICE_ID_MONTHLY;
       } else if (rawPlan === "pro_max_monthly") {
         plan = "pro_max_monthly";
-        priceId = env.PADDLE_PRICE_PRO_MAX_MONTHLY;
+
+        priceId = discounted
+          ? env.PADDLE_PRICE_PRO_MAX_MONTHLY_DISCOUNTED
+          : env.PADDLE_PRICE_PRO_MAX_MONTHLY;
       } else if (rawPlan === "pro_annual") {
         plan = "pro_annual";
-        priceId = env.PADDLE_PRICE_ID_ANNUALLY;
+
+        priceId = discounted
+          ? env.PADDLE_PRICE_ID_ANNUALLY_DISCOUNTED
+          : env.PADDLE_PRICE_ID_ANNUALLY;
       } else if (rawPlan === "lifetime") {
         plan = "lifetime";
-        priceId = env.PADDLE_PRICE_ID_LIFETIME;
+
+        priceId = discounted
+          ? env.PADDLE_PRICE_ID_LIFETIME_DISCOUNTED
+          : env.PADDLE_PRICE_ID_LIFETIME;
       } else {
         return reply.status(400).send({
           error: "Invalid plan",
         });
       }
     } else {
+      // Legacy/direct priceId flow.
+      // Keep existing behavior for callers that do not send a plan.
       if (rawPriceId === env.PADDLE_PRICE_ID_MONTHLY) {
         plan = "pro_monthly";
         priceId = env.PADDLE_PRICE_ID_MONTHLY;
@@ -81,17 +98,20 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
 
     // 1. Look up user in database by userId
     let user;
+
     try {
       const [foundUser] = await db
         .select()
         .from(users)
         .where(eq(users.id, userId));
+
       user = foundUser;
     } catch (dbError: any) {
       fastify.log.warn(
         { userId, error: dbError?.message },
         "Invalid userId or database query failed during checkout",
       );
+
       return reply.status(400).send({
         error: "Invalid userId or user not found",
       });
@@ -102,6 +122,7 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
         { userId },
         "Checkout attempt for non-existent user or user without email",
       );
+
       return reply.status(404).send({
         error: "User not found or has no email",
       });
@@ -109,11 +130,13 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
 
     // 2. Verify email matches Meshy user account
     const userEmailNormalized = user.email.trim().toLowerCase();
+
     if (userEmailNormalized !== normalizedEmail) {
       fastify.log.warn(
         { userId },
         "Checkout email mismatch with Meshy account email",
       );
+
       return reply.status(403).send({
         error: "Email does not match the Meshy account",
       });
@@ -135,6 +158,7 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
         { userId },
         "Checkout attempt with installationId not owned by user",
       );
+
       return reply.status(403).send({
         error: "installationId does not belong to this user",
       });
@@ -156,11 +180,13 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
             const newCustomer = await paddle.customers.create({
               email: normalizedEmail,
             });
+
             paddleCustomerId = newCustomer.id;
           } catch (createErr: any) {
             const retryExisting = await paddle.customers
               .list({ email: [normalizedEmail] })
               .next();
+
             if (retryExisting.length > 0) {
               paddleCustomerId = retryExisting[0].id;
             } else {
@@ -179,7 +205,8 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
           .where(eq(users.id, user.id));
       }
 
-      // 4. Create Paddle transaction with locked customer email & customData
+      // 4. Create Paddle transaction.
+      // The server-selected priceId is authoritative.
       const transaction = await paddle.transactions.create({
         items: [
           {
@@ -202,6 +229,9 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
           {
             transactionId: transaction.id,
             userId,
+            plan,
+            priceId,
+            discounted,
           },
           "Paddle transaction created but no checkout URL was returned",
         );
@@ -220,6 +250,9 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
           userId,
           paddleCustomerId,
           installationId,
+          plan,
+          priceId,
+          discounted,
         },
         "Paddle checkout transaction created successfully",
       );
@@ -235,6 +268,9 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
           message: error?.message,
           code: error?.code,
           userId,
+          plan,
+          priceId,
+          discounted,
         },
         "Failed to create Paddle checkout transaction",
       );
