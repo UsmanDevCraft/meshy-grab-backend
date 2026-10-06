@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { env } from "../config/env.js";
 import { db } from "../db/client.js";
 import { subscriptions, users } from "../db/schema.js";
+import { paddle } from "../lib/paddle.js";
 import { Plan } from "../types/plan.js";
 
 export interface UpsertPaddleSubscriptionParams {
@@ -53,12 +54,75 @@ export async function setUserLifetimePlan(
   paddleCustomerId?: string | null,
 ) {
   const now = new Date();
+
+  // 1. Retrieve current user and subscription records to check for active recurring sub ID
+  const [currentUser] = await db
+    .select({
+      paddleSubscriptionId: users.paddleSubscriptionId,
+      paddleCustomerId: users.paddleCustomerId,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  const [currentSub] = await db
+    .select({
+      paddleSubscriptionId: subscriptions.paddleSubscriptionId,
+      status: subscriptions.status,
+    })
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, userId))
+    .limit(1);
+
+  const existingSubId =
+    currentUser?.paddleSubscriptionId || currentSub?.paddleSubscriptionId;
+
+  // 2. If user has an existing recurring subscription ID, cancel it at Paddle & mark local sub canceled
+  if (existingSubId) {
+    try {
+      await paddle.subscriptions.cancel(existingSubId, {
+        effectiveFrom: "immediately",
+      });
+    } catch (error: any) {
+      const errorMessage = (error?.message || "").toLowerCase();
+      const errorCode = (error?.code || "").toLowerCase();
+      const status = error?.status || error?.statusCode;
+
+      const isAlreadyCanceled =
+        errorMessage.includes("already canceled") ||
+        errorMessage.includes("already cancelled") ||
+        errorMessage.includes("cannot be canceled") ||
+        errorMessage.includes("not found") ||
+        errorCode.includes("already_canceled") ||
+        status === 409 ||
+        status === 404;
+
+      if (!isAlreadyCanceled) {
+        throw error;
+      }
+    }
+
+    // Update local subscription row to canceled status (preserves historical plan)
+    await db
+      .update(subscriptions)
+      .set({
+        status: "canceled",
+        updatedAt: now,
+      })
+      .where(eq(subscriptions.userId, userId));
+  }
+
+  // 3. Activate Lifetime on users table and clear paddleSubscriptionId
+  const effectiveCustomerId =
+    paddleCustomerId ?? currentUser?.paddleCustomerId ?? null;
+
   await db
     .update(users)
     .set({
       isPaid: true,
       plan: "lifetime",
-      paddleCustomerId: paddleCustomerId ?? undefined,
+      paddleCustomerId: effectiveCustomerId ?? undefined,
+      paddleSubscriptionId: null,
       paidAt: now,
       updatedAt: now,
     })
