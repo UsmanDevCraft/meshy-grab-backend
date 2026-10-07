@@ -12,6 +12,7 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
       plan?: string;
       priceId?: string;
       isDiscounted?: boolean;
+      isFavLifetime?: boolean;
       userId?: string;
       email?: string;
       installationId?: string;
@@ -21,6 +22,7 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
       plan: rawPlan,
       priceId: rawPriceId,
       isDiscounted,
+      isFavLifetime,
       userId,
       email,
       installationId,
@@ -84,7 +86,11 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
       } else if (rawPriceId === env.PADDLE_PRICE_ID_ANNUALLY) {
         plan = "pro_annual";
         priceId = env.PADDLE_PRICE_ID_ANNUALLY;
-      } else if (rawPriceId === env.PADDLE_PRICE_ID_LIFETIME) {
+      } else if (
+        rawPriceId === env.PADDLE_PRICE_ID_LIFETIME ||
+        rawPriceId === env.PADDLE_PRICE_ID_LIFETIME_DISCOUNTED ||
+        rawPriceId === env.PADDLE_FAV_LIFETIME_PRICE_ID
+      ) {
         plan = "lifetime";
         priceId = env.PADDLE_PRICE_ID_LIFETIME;
       } else {
@@ -162,6 +168,22 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(403).send({
         error: "installationId does not belong to this user",
       });
+    }
+
+    // 2c. Authoritative backend price resolution for Lifetime checkout:
+    // Only plan === "lifetime" enters the Fav Lifetime check.
+    // The backend allowlist env.FAV_LIFETIME_EMAILS is the strict source of truth.
+    if (plan === "lifetime") {
+      const isFavLifetimeUser =
+        env.FAV_LIFETIME_EMAILS.includes(normalizedEmail);
+
+      if (isFavLifetimeUser) {
+        priceId = env.PADDLE_FAV_LIFETIME_PRICE_ID;
+      } else if (discounted) {
+        priceId = env.PADDLE_PRICE_ID_LIFETIME_DISCOUNTED;
+      } else {
+        priceId = env.PADDLE_PRICE_ID_LIFETIME;
+      }
     }
 
     // 3. Obtain or create Paddle Customer ID to lock email on checkout
