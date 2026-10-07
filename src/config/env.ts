@@ -9,6 +9,14 @@ function requireEnv(name: string, fallbackName?: string): string {
   return value;
 }
 
+function parseEmailList(raw?: string): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter((email) => email.length > 0);
+}
+
 export const env = {
   DATABASE_URL: requireEnv("DATABASE_URL"),
 
@@ -29,6 +37,8 @@ export const env = {
   PADDLE_PRICE_ID_LIFETIME_DISCOUNTED: requireEnv(
     "PADDLE_PRICE_ID_LIFETIME_DISCOUNTED",
   ),
+  PADDLE_FAV_LIFETIME_PRICE_ID: requireEnv("PADDLE_FAV_LIFETIME_PRICE_ID"),
+  FAV_LIFETIME_EMAILS: parseEmailList(process.env.FAV_LIFETIME_EMAILS),
   PADDLE_CLIENT_TOKEN: requireEnv("PADDLE_CLIENT_TOKEN"),
 
   NODE_ENV: process.env.NODE_ENV ?? "development",
