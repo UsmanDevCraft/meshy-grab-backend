@@ -76,7 +76,6 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
       }
     } else {
       // Legacy/direct priceId flow.
-      // Keep existing behavior for callers that do not send a plan.
       if (rawPriceId === env.PADDLE_PRICE_ID_MONTHLY) {
         plan = "pro_monthly";
         priceId = env.PADDLE_PRICE_ID_MONTHLY;
@@ -134,17 +133,17 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    // 2. Verify email matches Meshy user account
+    // 2. Verify email matches account email
     const userEmailNormalized = user.email.trim().toLowerCase();
 
     if (userEmailNormalized !== normalizedEmail) {
       fastify.log.warn(
         { userId },
-        "Checkout email mismatch with Meshy account email",
+        "Checkout email mismatch with account email",
       );
 
       return reply.status(403).send({
-        error: "Email does not match the Meshy account",
+        error: "Email does not match the account",
       });
     }
 
@@ -171,8 +170,6 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // 2c. Authoritative backend price resolution for Lifetime checkout:
-    // Only plan === "lifetime" enters the Fav Lifetime check.
-    // The backend allowlist env.FAV_LIFETIME_EMAILS is the strict source of truth.
     if (plan === "lifetime") {
       const isFavLifetimeUser =
         env.FAV_LIFETIME_EMAILS.includes(normalizedEmail);
@@ -228,7 +225,7 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // 4. Create Paddle transaction.
-      // The server-selected priceId is authoritative.
+      // Custom data stores user metadata for webhooks to read directly upon completion.
       const transaction = await paddle.transactions.create({
         items: [
           {
@@ -263,8 +260,9 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      // Append the email parameter to the URL for static pay.html consumption[cite: 4]
       const checkoutUrl = new URL(paddleCheckoutUrl);
-      checkoutUrl.searchParams.set("installationId", installationId);
+      checkoutUrl.searchParams.set("email", normalizedEmail);
 
       fastify.log.info(
         {
@@ -279,6 +277,7 @@ export const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
         "Paddle checkout transaction created successfully",
       );
 
+      // 5. Return the modified URL containing both _ptxn and email parameters[cite: 4]
       return reply.status(201).send({
         url: checkoutUrl.toString(),
         transactionId: transaction.id,
