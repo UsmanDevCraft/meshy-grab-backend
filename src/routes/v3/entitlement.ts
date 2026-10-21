@@ -12,6 +12,7 @@ import {
 } from "../../services/entitlement.js";
 import { getCommunityEntitlement } from "../../services/community.js";
 import { getTripoEntitlement } from "../../services/tripo.js";
+import { getFeaturesEntitlement } from "../../services/features.js";
 import {
   entitlementQuerySchema,
   v3EntitlementResponseSchema,
@@ -75,6 +76,28 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
             unlimited: false,
           },
         },
+        features: {
+          upscaling: {
+            available: false,
+            limit: null,
+            used: 0,
+            remaining: null,
+            unlimited: false,
+            period: null,
+            periodStart: null,
+            periodEnd: null,
+          },
+          formatConversion: {
+            available: false,
+            limit: null,
+            used: 0,
+            remaining: null,
+            unlimited: false,
+            period: null,
+            periodStart: null,
+            periodEnd: null,
+          },
+        },
       },
     };
   }
@@ -82,6 +105,7 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
   const isPro = user.isPaid || isProSubscription(user.subStatus, user.isPaid);
   const communityEntitlement = await getCommunityEntitlement(user);
   const tripoEntitlement = await getTripoEntitlement(user);
+  const featureEntitlement = await getFeaturesEntitlement(user);
 
   return {
     statusCode: 200,
@@ -117,6 +141,7 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
       tripo: {
         studioModels: tripoEntitlement.studioModels,
       },
+      features: featureEntitlement,
     },
   };
 }

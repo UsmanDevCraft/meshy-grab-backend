@@ -23,6 +23,8 @@ export async function getUserById(userId: string) {
       plan: users.plan,
       freeDownloadsUsed: users.freeDownloadsUsed,
       textureDownloadsUsed: users.textureDownloadsUsed,
+      upscalesUsed: users.upscalesUsed,
+      formatConversionsUsed: users.formatConversionsUsed,
       paddleCustomerId: users.paddleCustomerId,
       paddleSubscriptionId: users.paddleSubscriptionId,
       paidAt: users.paidAt,
@@ -50,6 +52,8 @@ export async function getUserById(userId: string) {
           plan: users.plan,
           freeDownloadsUsed: users.freeDownloadsUsed,
           textureDownloadsUsed: users.textureDownloadsUsed,
+          upscalesUsed: users.upscalesUsed,
+          formatConversionsUsed: users.formatConversionsUsed,
           paddleCustomerId: users.paddleCustomerId,
           paddleSubscriptionId: users.paddleSubscriptionId,
           paidAt: users.paidAt,
@@ -79,6 +83,8 @@ export async function getUserByInstallationId(installationId: string) {
       plan: users.plan,
       freeDownloadsUsed: users.freeDownloadsUsed,
       textureDownloadsUsed: users.textureDownloadsUsed,
+      upscalesUsed: users.upscalesUsed,
+      formatConversionsUsed: users.formatConversionsUsed,
       paddleCustomerId: users.paddleCustomerId,
       paddleSubscriptionId: users.paddleSubscriptionId,
       paidAt: users.paidAt,
@@ -107,6 +113,8 @@ export async function getUserByInstallationId(installationId: string) {
           plan: users.plan,
           freeDownloadsUsed: users.freeDownloadsUsed,
           textureDownloadsUsed: users.textureDownloadsUsed,
+          upscalesUsed: users.upscalesUsed,
+          formatConversionsUsed: users.formatConversionsUsed,
           paddleCustomerId: users.paddleCustomerId,
           paddleSubscriptionId: users.paddleSubscriptionId,
           paidAt: users.paidAt,
@@ -153,6 +161,8 @@ export interface UserAndSubQueryResult {
   plan: string | null;
   freeDownloadsUsed: number;
   textureDownloadsUsed: number;
+  upscalesUsed: number;
+  formatConversionsUsed: number;
   paddleCustomerId: string | null;
   paddleSubscriptionId: string | null;
   paidAt: Date | null;
@@ -185,6 +195,8 @@ export async function getUserAndSubscription(
     plan: users.plan,
     freeDownloadsUsed: users.freeDownloadsUsed,
     textureDownloadsUsed: users.textureDownloadsUsed,
+    upscalesUsed: users.upscalesUsed,
+    formatConversionsUsed: users.formatConversionsUsed,
     paddleCustomerId: users.paddleCustomerId,
     paddleSubscriptionId: users.paddleSubscriptionId,
     paidAt: users.paidAt,
