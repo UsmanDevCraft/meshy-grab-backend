@@ -99,6 +99,20 @@
       "when": 1789000000000,
       "tag": "0013_add_download_source",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789100000000,
+      "tag": "0014_add_tripo_downloads",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1789200000000,
+      "tag": "0015_add_feature_usage_and_quotas",
+      "breakpoints": true
     }
   ]
 }

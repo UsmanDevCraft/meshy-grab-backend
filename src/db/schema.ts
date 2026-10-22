@@ -24,6 +24,12 @@ export const users = pgTable(
       .notNull()
       .default(0),
 
+    upscalesUsed: integer("upscales_used").notNull().default(0),
+
+    formatConversionsUsed: integer("format_conversions_used")
+      .notNull()
+      .default(0),
+
     isPaid: boolean("is_paid").notNull().default(false),
 
     plan: varchar("plan", {
@@ -367,3 +373,56 @@ export const tripoDownloads = pgTable(
     ),
   }),
 );
+
+export const featureUsages = pgTable(
+  "feature_usages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+      }),
+
+    featureType: varchar("feature_type", {
+      length: 32,
+    }).notNull(),
+
+    resolution: varchar("resolution", {
+      length: 16,
+    }),
+
+    inputFormat: varchar("input_format", {
+      length: 32,
+    }),
+
+    outputFormat: varchar("output_format", {
+      length: 32,
+    }),
+
+    idempotencyKey: varchar("idempotency_key", {
+      length: 255,
+    }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    userIdIdx: index("feature_usages_user_id_idx").on(table.userId),
+    userFeatureCreatedIdx: index("feature_usages_user_feature_created_idx").on(
+      table.userId,
+      table.featureType,
+      table.createdAt,
+    ),
+    userIdempotencyIdx: index("feature_usages_idempotency_idx").on(
+      table.userId,
+      table.idempotencyKey,
+    ),
+  }),
+);
+
+export const featureUsage = featureUsages;
