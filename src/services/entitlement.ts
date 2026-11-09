@@ -170,6 +170,7 @@ export interface UserAndSubQueryResult {
   subStatus: string | null;
   subPaddleCustomerId: string | null;
   subPaddleSubscriptionId: string | null;
+  cancelAtPeriodEnd?: boolean | null;
   currentPeriodStart: Date | null;
   currentPeriodEnd: Date | null;
 }
@@ -204,6 +205,7 @@ export async function getUserAndSubscription(
     subStatus: subscriptions.status,
     subPaddleCustomerId: subscriptions.paddleCustomerId,
     subPaddleSubscriptionId: subscriptions.paddleSubscriptionId,
+    cancelAtPeriodEnd: subscriptions.cancelAtPeriodEnd,
     currentPeriodStart: subscriptions.currentPeriodStart,
     currentPeriodEnd: subscriptions.currentPeriodEnd,
   };
