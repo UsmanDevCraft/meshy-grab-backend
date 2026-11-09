@@ -63,6 +63,9 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
         paddleCustomerId: null,
         paddleSubscriptionId: null,
         paidAt: null,
+        cancelAtPeriodEnd: false,
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
         accountType: "primary",
         ownerUserId: null,
         accountSlots: 0,
@@ -133,6 +136,13 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
       paddleSubscriptionId:
         user.paddleSubscriptionId ?? user.subPaddleSubscriptionId ?? null,
       paidAt: user.paidAt ? user.paidAt.toISOString() : null,
+      cancelAtPeriodEnd: Boolean(user.cancelAtPeriodEnd),
+      currentPeriodStart: user.currentPeriodStart
+        ? user.currentPeriodStart.toISOString()
+        : null,
+      currentPeriodEnd: user.currentPeriodEnd
+        ? user.currentPeriodEnd.toISOString()
+        : null,
       accountType: user.accountType ?? "primary",
       ownerUserId: user.ownerUserId ?? user.id,
       accountSlots: user.accountSlots ?? 0,

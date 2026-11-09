@@ -8,6 +8,7 @@ import { accountRoutes } from "./accounts.js";
 import { tripoRoutes } from "./tripo.js";
 import { featureRoutes } from "./features.js";
 import { statsRoutes } from "./stats.js";
+import { subscriptionRoutes } from "./subscription.js";
 
 export async function v3Routes(app: FastifyInstance) {
   await app.register(healthRoutes);
@@ -19,4 +20,5 @@ export async function v3Routes(app: FastifyInstance) {
   await app.register(tripoRoutes);
   await app.register(featureRoutes);
   await app.register(statsRoutes);
+  await app.register(subscriptionRoutes);
 }

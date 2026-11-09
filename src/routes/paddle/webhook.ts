@@ -141,6 +141,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
             }
 
             const firstItem = data.items?.[0];
+            const cancelAtPeriodEnd = data.scheduledChange?.action === "cancel";
 
             await upsertPaddleSubscription({
               userId,
@@ -156,6 +157,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
               currentPeriodEnd: data.currentBillingPeriod?.endsAt
                 ? new Date(data.currentBillingPeriod.endsAt)
                 : null,
+              cancelAtPeriodEnd,
             });
 
             fastify.log.info(
@@ -194,6 +196,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
             }
 
             const firstItem = data.items?.[0];
+            const cancelAtPeriodEnd = data.scheduledChange?.action === "cancel";
 
             await upsertPaddleSubscription({
               userId,
@@ -209,6 +212,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
               currentPeriodEnd: data.currentBillingPeriod?.endsAt
                 ? new Date(data.currentBillingPeriod.endsAt)
                 : null,
+              cancelAtPeriodEnd,
             });
 
             fastify.log.info(
@@ -246,6 +250,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
             }
 
             const firstItem = data.items?.[0];
+            const cancelAtPeriodEnd = data.scheduledChange?.action === "cancel";
 
             await upsertPaddleSubscription({
               userId,
@@ -261,6 +266,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
               currentPeriodEnd: data.currentBillingPeriod?.endsAt
                 ? new Date(data.currentBillingPeriod.endsAt)
                 : null,
+              cancelAtPeriodEnd,
             });
 
             fastify.log.info(
@@ -268,6 +274,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
                 userId,
                 subscriptionId: data.id,
                 status: data.status,
+                cancelAtPeriodEnd,
               },
               "Paddle subscription updated",
             );
