@@ -12,6 +12,12 @@ export const entitlementQuerySchema = {
       minLength: 1,
       maxLength: 128,
     },
+    email: {
+      type: "string",
+      format: "email",
+      minLength: 1,
+      maxLength: 320,
+    },
   },
 } as const;
 
