@@ -21,19 +21,27 @@ import {
 interface EntitlementQuery {
   installationId?: string;
   userId?: string;
+  email?: string;
 }
 
-async function handleEntitlementStatus(query: EntitlementQuery) {
-  const { installationId, userId } = query;
+async function handleEntitlementStatus(
+  query: EntitlementQuery,
+  allowEmail = false,
+) {
+  const { installationId, userId, email } = query;
 
-  if (!installationId && !userId) {
+  if (!installationId && !userId && (!allowEmail || !email)) {
     return {
-      error: "installationId or userId is required",
       statusCode: 400,
+      error: "installationId, userId or email is required",
     };
   }
 
-  const user = await getUserAndSubscription({ installationId, userId });
+  const user = await getUserAndSubscription({
+    installationId,
+    userId,
+    email: allowEmail ? email : undefined,
+  });
 
   if (installationId && userId && user) {
     if (user.id !== userId && user.ownerUserId !== userId) {
@@ -43,6 +51,15 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
         message: "installationId does not match provided userId.",
       };
     }
+  }
+
+  // Email status lookup: don't reveal default entitlement information
+  // when the supplied email does not belong to an existing user.
+  if (allowEmail && email && !user) {
+    return {
+      statusCode: 404,
+      error: "User not found",
+    };
   }
 
   if (!user) {
@@ -110,54 +127,73 @@ async function handleEntitlementStatus(query: EntitlementQuery) {
   const tripoEntitlement = await getTripoEntitlement(user);
   const featureEntitlement = await getFeaturesEntitlement(user);
 
+  const fullResponse = {
+    exists: true,
+    userId: user.id,
+    email: user.identityEmail ?? user.email,
+    isPaid: user.isPaid ?? false,
+    plan: isPro ? (user.plan ?? user.subPlan ?? "pro_monthly") : "free",
+    freeDownloadsUsed: user.freeDownloadsUsed,
+    freeDownloadsRemaining: isPro
+      ? null
+      : getFreeDownloadsRemaining(user.freeDownloadsUsed),
+    textureDownloadsUsed: user.textureDownloadsUsed ?? 0,
+    textureDownloadsRemaining: isPro
+      ? null
+      : getFreeTextureDownloadsRemaining(user.textureDownloadsUsed ?? 0),
+    communityModelsUsed: communityEntitlement.communityModelsUsed,
+    communityModelsRemaining: communityEntitlement.communityModelsRemaining,
+    communityModelsLimit: communityEntitlement.communityModelsLimit,
+    subscriptionStatus: user.subStatus ?? (user.isPaid ? "active" : "inactive"),
+    paddleCustomerId: user.paddleCustomerId ?? user.subPaddleCustomerId ?? null,
+    paddleSubscriptionId:
+      user.paddleSubscriptionId ?? user.subPaddleSubscriptionId ?? null,
+    paidAt: user.paidAt ? user.paidAt.toISOString() : null,
+    cancelAtPeriodEnd: Boolean(user.cancelAtPeriodEnd),
+    currentPeriodStart: user.currentPeriodStart
+      ? user.currentPeriodStart.toISOString()
+      : null,
+    currentPeriodEnd: user.currentPeriodEnd
+      ? user.currentPeriodEnd.toISOString()
+      : null,
+    accountType: user.accountType ?? "primary",
+    ownerUserId: user.ownerUserId ?? user.id,
+    accountSlots: user.accountSlots ?? 0,
+    linkedAccountsCount: user.linkedAccountsCount ?? 0,
+    linkedAccountsRemaining: user.linkedAccountsRemaining ?? 0,
+    tripo: {
+      studioModels: tripoEntitlement.studioModels,
+    },
+    features: featureEntitlement,
+  };
+
+  // Keep the existing full entitlement response for /entitlement.
+  if (!allowEmail) {
+    return {
+      statusCode: 200,
+      body: fullResponse,
+    };
+  }
+
+  // Minimal response for /api/user/status.
   return {
     statusCode: 200,
     body: {
       exists: true,
-      userId: user.id,
-      email: user.identityEmail ?? user.email,
-      isPaid: user.isPaid ?? false,
-      plan: isPro ? (user.plan ?? user.subPlan ?? "pro_monthly") : "free",
-      freeDownloadsUsed: user.freeDownloadsUsed,
-      freeDownloadsRemaining: isPro
-        ? null
-        : getFreeDownloadsRemaining(user.freeDownloadsUsed),
-      textureDownloadsUsed: user.textureDownloadsUsed ?? 0,
-      textureDownloadsRemaining: isPro
-        ? null
-        : getFreeTextureDownloadsRemaining(user.textureDownloadsUsed ?? 0),
-      communityModelsUsed: communityEntitlement.communityModelsUsed,
-      communityModelsRemaining: communityEntitlement.communityModelsRemaining,
-      communityModelsLimit: communityEntitlement.communityModelsLimit,
-      subscriptionStatus:
-        user.subStatus ?? (user.isPaid ? "active" : "inactive"),
-      paddleCustomerId:
-        user.paddleCustomerId ?? user.subPaddleCustomerId ?? null,
-      paddleSubscriptionId:
-        user.paddleSubscriptionId ?? user.subPaddleSubscriptionId ?? null,
-      paidAt: user.paidAt ? user.paidAt.toISOString() : null,
-      cancelAtPeriodEnd: Boolean(user.cancelAtPeriodEnd),
-      currentPeriodStart: user.currentPeriodStart
-        ? user.currentPeriodStart.toISOString()
-        : null,
-      currentPeriodEnd: user.currentPeriodEnd
-        ? user.currentPeriodEnd.toISOString()
-        : null,
-      accountType: user.accountType ?? "primary",
-      ownerUserId: user.ownerUserId ?? user.id,
-      accountSlots: user.accountSlots ?? 0,
-      linkedAccountsCount: user.linkedAccountsCount ?? 0,
-      linkedAccountsRemaining: user.linkedAccountsRemaining ?? 0,
-      tripo: {
-        studioModels: tripoEntitlement.studioModels,
-      },
-      features: featureEntitlement,
+      isPaid: fullResponse.isPaid,
+      plan: fullResponse.plan,
+      subscriptionStatus: fullResponse.subscriptionStatus,
+      paidAt: fullResponse.paidAt,
+      cancelAtPeriodEnd: fullResponse.cancelAtPeriodEnd,
+      currentPeriodStart: fullResponse.currentPeriodStart,
+      currentPeriodEnd: fullResponse.currentPeriodEnd,
+      accountType: fullResponse.accountType,
     },
   };
 }
 
 export async function entitlementRoutes(app: FastifyInstance) {
-  // GET /entitlement
+  // GET /entitlement - existing full entitlement response.
   app.get<{ Querystring: EntitlementQuery }>(
     "/entitlement",
     {
@@ -168,27 +204,34 @@ export async function entitlementRoutes(app: FastifyInstance) {
     },
     async (request, reply) => {
       const result = await handleEntitlementStatus(request.query || {});
+
       if (result.error) {
-        return reply.code(result.statusCode).send({ error: result.error });
+        return reply.code(result.statusCode).send({
+          error: result.error,
+        });
       }
+
       return reply.code(result.statusCode).send(result.body);
     },
   );
 
-  // GET /api/user/status
+  // GET /api/user/status - minimal account status response.
   app.get<{ Querystring: EntitlementQuery }>(
     "/api/user/status",
     {
       schema: {
         querystring: entitlementQuerySchema,
-        response: v3EntitlementResponseSchema,
       },
     },
     async (request, reply) => {
-      const result = await handleEntitlementStatus(request.query || {});
+      const result = await handleEntitlementStatus(request.query || {}, true);
+
       if (result.error) {
-        return reply.code(result.statusCode).send({ error: result.error });
+        return reply.code(result.statusCode).send({
+          error: result.error,
+        });
       }
+
       return reply.code(result.statusCode).send(result.body);
     },
   );

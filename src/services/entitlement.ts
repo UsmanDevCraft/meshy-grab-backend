@@ -1,4 +1,4 @@
-import { eq, count } from "drizzle-orm";
+import { eq, count, sql } from "drizzle-orm";
 
 import { db } from "../db/client.js";
 import {
@@ -37,6 +37,7 @@ export async function getUserById(userId: string) {
 
   if (user.email) {
     const normalizedEmail = user.email.trim().toLowerCase();
+
     const [linked] = await db
       .select({ ownerUserId: linkedAccounts.ownerUserId })
       .from(linkedAccounts)
@@ -98,6 +99,7 @@ export async function getUserByInstallationId(installationId: string) {
 
   if (result.email) {
     const normalizedEmail = result.email.trim().toLowerCase();
+
     const [linked] = await db
       .select({ ownerUserId: linkedAccounts.ownerUserId })
       .from(linkedAccounts)
@@ -179,15 +181,17 @@ export interface UserAndSubQueryResult {
  * Single round-trip field-projected query for user and subscription details.
  * Resolves attached Meshy accounts to their primary owner user & subscription.
  */
+
 export async function getUserAndSubscription(
   query: {
     userId?: string;
     installationId?: string;
+    email?: string;
   },
   tx?: any,
 ) {
   const runner = tx ?? db;
-  const { userId, installationId } = query;
+  const { userId, installationId, email } = query;
 
   const selectFields = {
     id: users.id,
@@ -212,6 +216,11 @@ export async function getUserAndSubscription(
 
   let initialUser: UserAndSubQueryResult | null = null;
 
+  let matchedLinkedAccount: {
+    ownerUserId: string;
+    meshyEmail: string;
+  } | null = null;
+
   if (installationId) {
     const [result] = await runner
       .select(selectFields)
@@ -231,6 +240,46 @@ export async function getUserAndSubscription(
       .limit(1);
 
     initialUser = (result as UserAndSubQueryResult) ?? null;
+  } else if (email) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // First, look for a primary user by email.
+    const [result] = await runner
+      .select(selectFields)
+      .from(users)
+      .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
+      .where(sql`lower(trim(${users.email})) = ${normalizedEmail}`)
+      .limit(1);
+
+    initialUser = (result as UserAndSubQueryResult) ?? null;
+
+    // If no primary user exists, check attached Meshy accounts.
+    if (!initialUser) {
+      const [linked] = await runner
+        .select({
+          ownerUserId: linkedAccounts.ownerUserId,
+          meshyEmail: linkedAccounts.meshyEmail,
+        })
+        .from(linkedAccounts)
+        .where(
+          sql`lower(trim(${linkedAccounts.meshyEmail})) = ${normalizedEmail}`,
+        )
+        .limit(1);
+
+      if (linked) {
+        const [owner] = await runner
+          .select(selectFields)
+          .from(users)
+          .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
+          .where(eq(users.id, linked.ownerUserId))
+          .limit(1);
+
+        if (owner) {
+          initialUser = owner as UserAndSubQueryResult;
+          matchedLinkedAccount = linked;
+        }
+      }
+    }
   }
 
   if (!initialUser) {
@@ -241,15 +290,25 @@ export async function getUserAndSubscription(
   let accountType: "primary" | "attached" = "primary";
   let identityEmail: string | null = initialUser.email;
 
-  if (initialUser.email) {
+  // If the requested email directly matched a linked account,
+  // its owner has already been loaded above.
+  if (matchedLinkedAccount) {
+    accountType = "attached";
+    identityEmail = matchedLinkedAccount.meshyEmail;
+  } else if (initialUser.email) {
     const normalizedEmail = initialUser.email.trim().toLowerCase();
+
+    // Preserve existing linked-account resolution for userId
+    // and installationId lookups.
     const [linked] = await runner
       .select({
         ownerUserId: linkedAccounts.ownerUserId,
         meshyEmail: linkedAccounts.meshyEmail,
       })
       .from(linkedAccounts)
-      .where(eq(linkedAccounts.meshyEmail, normalizedEmail))
+      .where(
+        sql`lower(trim(${linkedAccounts.meshyEmail})) = ${normalizedEmail}`,
+      )
       .limit(1);
 
     if (linked) {
@@ -269,20 +328,24 @@ export async function getUserAndSubscription(
   }
 
   const ownerUserId = effectiveUser.id;
+
   const isPro =
     effectiveUser.isPaid ||
     isProSubscription(effectiveUser.subStatus, effectiveUser.isPaid);
+
   const effectivePlan = isPro
     ? (effectiveUser.plan ?? effectiveUser.subPlan ?? "pro_monthly")
     : "free";
+
   const accountSlots = isPro ? getAccountSlotsForPlan(effectivePlan, isPro) : 0;
 
-  const [linkedCountRes] = await db
+  const [linkedCountRes] = await runner
     .select({ count: count() })
     .from(linkedAccounts)
     .where(eq(linkedAccounts.ownerUserId, ownerUserId));
 
   const linkedAccountsCount = Number(linkedCountRes?.count ?? 0);
+
   const linkedAccountsRemaining = Math.max(
     0,
     accountSlots - linkedAccountsCount,
