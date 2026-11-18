@@ -1,4 +1,4 @@
-import { eq, count, sql } from "drizzle-orm";
+import { eq, count, sql, desc } from "drizzle-orm";
 
 import { db } from "../db/client.js";
 import {
@@ -135,6 +135,22 @@ export async function getUserByInstallationId(installationId: string) {
   }
 
   return result;
+}
+
+export async function getLatestInstallationIdForUser(
+  userId: string,
+  runner = db,
+): Promise<string | null> {
+  const [result] = await runner
+    .select({
+      installationId: installations.installationId,
+    })
+    .from(installations)
+    .where(eq(installations.userId, userId))
+    .orderBy(desc(installations.createdAt))
+    .limit(1);
+
+  return result?.installationId ?? null;
 }
 
 export async function getUserSubscription(userId: string) {

@@ -7,6 +7,7 @@ import {
 import {
   getFreeDownloadsRemaining,
   getFreeTextureDownloadsRemaining,
+  getLatestInstallationIdForUser,
   getUserAndSubscription,
   isProSubscription,
 } from "../../services/entitlement.js";
@@ -175,11 +176,18 @@ async function handleEntitlementStatus(
     };
   }
 
+  let installationIdForStatus: string | null = null;
+  if (email) {
+    const ownerUserId = user.ownerUserId ?? user.id;
+    installationIdForStatus = await getLatestInstallationIdForUser(ownerUserId);
+  }
+
   // Minimal response for /api/user/status.
   return {
     statusCode: 200,
     body: {
       exists: true,
+      ...(email ? { installationId: installationIdForStatus } : {}),
       isPaid: fullResponse.isPaid,
       plan: fullResponse.plan,
       subscriptionStatus: fullResponse.subscriptionStatus,
